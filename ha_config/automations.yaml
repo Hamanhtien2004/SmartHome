@@ -1,5 +1,6 @@
 # ==============================================================================
-# Home Assistant Core Automations & Facial Recognition Access Control
+# SMART HOME AUTOMATIONS - INTEGRATED PARAMETER-DRIVEN ENGINE
+# Cac kịch bản tự động hóa đồng bộ với các thanh trượt (input_number) trên Dashboard
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -7,37 +8,45 @@
 # ------------------------------------------------------------------------------
 - id: "automation_face_recognition_unlock_door"
   alias: "Access Control - Mở khóa cửa khi nhận diện khuôn mặt người nhà"
-  description: "Tự động kích hoạt mở khóa điện từ khi Double-Take khớp khuôn mặt thành viên gia đình >= 85%"
+  description: "Tự động kích hoạt mở khóa điện từ khi Double-Take khớp khuôn mặt thành viên gia đình >= ngưỡng cài đặt"
   trigger:
-    - platform: numeric_state
+    - platform: state
+      entity_id: sensor.double_take_latest_person
+    - platform: state
       entity_id: sensor.double_take_match_confidence
-      above: 84.9
   condition:
     - condition: state
       entity_id: input_boolean.face_recognition_auto_unlock
       state: "on"
     - condition: template
-      value_template: "{{ states('sensor.double_take_latest_person') not in ['unknown', 'None', ''] }}"
+      value_template: >
+        {% set person = states('sensor.double_take_latest_person') %}
+        {% set confidence = states('sensor.double_take_match_confidence') | float(0) %}
+        {% set threshold = states('input_number.face_recognition_threshold') | float(85) %}
+        {{ person not in ['unknown', 'None', '', 'unavailable'] and confidence >= threshold }}
   action:
-    # 1. Mở chốt khóa cửa trong 5 giây (Rơ-le ESP32)
+    # 1. Mở chốt khóa cửa điện từ (Rơ-le ESP32)
     - service: lock.unlock
       target:
         entity_id: lock.front_door
+
     # 2. Tự động vô hiệu hóa chế độ báo động Armed Away
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.security_armed_away
-    # 3. Bật đèn chiếu sáng đón tiếp sảnh vào ban đêm
+
+    # 3. Bật đèn đón tiếp sảnh vào ban đêm
     - service: switch.turn_on
       target:
         entity_id: switch.living_room_ambient_light
-    # 4. Gửi thông báo cục bộ và kích hoạt sự kiện Supabase Log
+
+    # 4. Gửi thông báo hệ thống và phát sự kiện đồng bộ Supabase
     - service: persistent_notification.create
       data:
         title: "🔓 CỬA CHÍNH ĐÃ MỞ (Face ID)"
-        message: "Chào mừng **{{ states('sensor.double_take_latest_person') }}** về nhà lúc {{ now().strftime('%H:%M:%S') }} (Độ khớp: {{ states('sensor.double_take_match_confidence') }}%)."
+        message: "Chào mừng **{{ states('sensor.double_take_latest_person') }}** về nhà lúc {{ now().strftime('%H:%M:%S') }} (Độ tin cậy: {{ states('sensor.double_take_match_confidence') }}%)."
         notification_id: "door_access_log"
-    # Phát sự kiện cho Telegram Bot & Supabase
+
     - event: smart_home_access_event
       event_data:
         person: "{{ states('sensor.double_take_latest_person') }}"
@@ -59,7 +68,9 @@
       to: "unknown"
   condition:
     - condition: template
-      value_template: "{{ states('sensor.double_take_match_confidence') | float(0) < 50.0 }}"
+      value_template: >
+        {% set confidence = states('sensor.double_take_match_confidence') | float(0) %}
+        {{ confidence < 50.0 }}
   action:
     - event: smart_home_stranger_detected
       event_data:
@@ -94,11 +105,15 @@
 # ------------------------------------------------------------------------------
 - id: "automation_livingroom_light_auto_on"
   alias: "Smart Light - Bật đèn khi có người hiện diện"
+  description: "Bật đèn phòng khách khi cảm biến mmWave phát hiện người"
   trigger:
     - platform: state
       entity_id: binary_sensor.bedroom_mmwave_presence
       to: "on"
   condition:
+    - condition: state
+      entity_id: input_boolean.auto_lights_enabled
+      state: "on"
     - condition: state
       entity_id: switch.living_room_main_light
       state: "off"
@@ -109,21 +124,30 @@
   mode: single
 
 # ------------------------------------------------------------------------------
-# 5. TỰ ĐỘNG TẮT ĐÈN KHI KHÔNG CÒN NGƯỜI
+# 5. TỰ ĐỘNG TẮT ĐÈN THEO THỜI GIAN TRỄ ĐỘNG (Dùng input_number.light_auto_off_delay)
 # ------------------------------------------------------------------------------
 - id: "automation_livingroom_light_auto_off"
   alias: "Smart Light - Tắt đèn khi không có người"
+  description: "Tắt đèn phòng khách sau khoảng thời gian không có người được tinh chỉnh trên Dashboard"
   trigger:
     - platform: state
       entity_id: binary_sensor.bedroom_mmwave_presence
       to: "off"
-      for:
-        minutes: 5
   condition:
+    - condition: state
+      entity_id: input_boolean.auto_lights_enabled
+      state: "on"
     - condition: state
       entity_id: switch.living_room_main_light
       state: "on"
   action:
+    # Cho trễ theo giá trị thanh trượt input_number.light_auto_off_delay (phút)
+    - delay:
+        minutes: "{{ states('input_number.light_auto_off_delay') | int(5) }}"
+    # Kiểm tra lại xem có ai bước vào trong thời gian chờ không
+    - condition: state
+      entity_id: binary_sensor.bedroom_mmwave_presence
+      state: "off"
     - service: switch.turn_off
       target:
         entity_id: switch.living_room_main_light
@@ -157,18 +181,26 @@
   mode: single
 
 # ------------------------------------------------------------------------------
-# 7. ĐIỀU KHIỂN QUẠT THEO NHIỆT ĐỘ PHÒNG (DHT22)
+# 7. ĐIỀU KHIỂN QUẠT THEO NHIỆT ĐỘ CÀI ĐẶT (DHT22)
 # ------------------------------------------------------------------------------
 - id: "automation_climate_fan_temp_high"
   alias: "Climate - Tự động bật quạt khi nhiệt độ cao"
+  description: "Bật quạt khi nhiệt độ đo từ DHT22 >= ngưỡng fan_temp_trigger_high"
   trigger:
-    - platform: numeric_state
+    - platform: state
       entity_id: sensor.bedroom_temperature
-      above: 30.0
   condition:
+    - condition: state
+      entity_id: input_boolean.auto_fan_enabled
+      state: "on"
     - condition: state
       entity_id: switch.living_room_ceiling_fan
       state: "off"
+    - condition: template
+      value_template: >
+        {% set temp = states('sensor.bedroom_temperature') | float(0) %}
+        {% set threshold = states('input_number.fan_temp_trigger_high') | float(30.0) %}
+        {{ temp >= threshold }}
   action:
     - service: switch.turn_on
       target:
@@ -177,14 +209,22 @@
 
 - id: "automation_climate_fan_temp_cool"
   alias: "Climate - Tự động tắt quạt khi phòng mát"
+  description: "Tắt quạt khi nhiệt độ đo từ DHT22 <= ngưỡng fan_temp_trigger_low"
   trigger:
-    - platform: numeric_state
+    - platform: state
       entity_id: sensor.bedroom_temperature
-      below: 27.0
   condition:
+    - condition: state
+      entity_id: input_boolean.auto_fan_enabled
+      state: "on"
     - condition: state
       entity_id: switch.living_room_ceiling_fan
       state: "on"
+    - condition: template
+      value_template: >
+        {% set temp = states('sensor.bedroom_temperature') | float(0) %}
+        {% set threshold = states('input_number.fan_temp_trigger_low') | float(27.0) %}
+        {{ temp <= threshold }}
   action:
     - service: switch.turn_off
       target:

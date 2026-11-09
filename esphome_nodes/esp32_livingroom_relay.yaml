@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp32-livingroom-relay
   friendly_name: "Living Room & Door Lock Controller"
+  mqtt_broker_ip: "192.168.1.100" # Thay bang IP cua Host chay Mosquitto Docker
 
 esphome:
   name: ${node_name}
@@ -12,7 +13,7 @@ esp32:
   framework:
     type: arduino
 
-# Enable native Home Assistant API
+# Native Home Assistant API (Khuyen nghi de tu dong dong bo thuc the vao HA)
 api:
   encryption:
     key: "ReplaceWithYourGenerated32ByteBase64Key="
@@ -26,8 +27,9 @@ ota:
 wifi:
   ssid: "Your_WiFi_SSID"
   password: "Your_WiFi_Password"
+  fast_connect: true
+  power_save_mode: none # Giu ket noi lien tuc, giam do tre phan hoi
 
-  # Fallback AP when WiFi network is unavailable
   ap:
     ssid: "LivingRoom-Relay-Fallback"
     password: "fallbackpassword123"
@@ -36,10 +38,27 @@ captive_portal:
 
 logger:
   level: INFO
+  baud_rate: 115200
 
-# Local Web Server for emergency standalone control
+# Giao dien Web cuc bo (Standalone Web UI de cuu ho khi mat Home Assistant)
 web_server:
   port: 80
+
+# ==============================================================================
+# MQTT COEXISTENCE (Dong bo MQTT cung luc voi HA Native API tranh xung dot)
+# Cho phep Node-RED, Python Bot, va cac he thong khac doc/ghi truc tiep
+# ==============================================================================
+mqtt:
+  broker: ${mqtt_broker_ip}
+  port: 1883
+  topic_prefix: "esphome/livingroom_relay"
+  discovery: true # Tu dong phat hien tren Home Assistant
+  birth_message:
+    topic: "esphome/livingroom_relay/status"
+    payload: "online"
+  will_message:
+    topic: "esphome/livingroom_relay/status"
+    payload: "offline"
 
 # Built-in Blue LED for status indication
 status_led:
@@ -49,6 +68,7 @@ status_led:
 
 # ==============================================================================
 # RELAY OUTPUTS (Lights, Fan & Access Control Lock)
+# Che do Active LOW, co chong mat dong bo trang thai sau khi mat dien
 # ==============================================================================
 switch:
   - platform: gpio
@@ -88,6 +108,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_OFF
 
   # Electronic Door Strike / Drop-bolt Lock Relay (GPIO23)
+  # Xung kich mo 5 giay, chong ket relay va tu dong ngat an toan
   - platform: gpio
     name: "Front Door Lock Electronic Relay"
     id: front_door_lock_relay
@@ -95,7 +116,7 @@ switch:
       number: GPIO23
       inverted: true
     icon: "mdi:door-closed-lock"
-    # Auto re-lock after 5 seconds pulse for safety
+    restore_mode: ALWAYS_OFF # Tuyet doi khong mo khoa khi vua khoi dong lai
     on_turn_on:
       - delay: 5s
       - switch.turn_off: front_door_lock_relay
@@ -105,6 +126,8 @@ switch:
 
 # ==============================================================================
 # PHYSICAL WALL SWITCHES & MAGNETIC DOOR SENSORS
+# Xu ly nut bam vat ly ngay tai Edge (phan cung ESP32) giup he thong van hoat dong
+# 100% binh thuong ngay ca khi Router Wi-Fi bi tat hoac may chu bao tri
 # ==============================================================================
 binary_sensor:
   - platform: gpio
@@ -116,7 +139,7 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on_off: 50ms
+      - delayed_on_off: 50ms # Chong nhieu va rung phim co
     on_press:
       then:
         - switch.toggle: relay_1
@@ -163,7 +186,7 @@ binary_sensor:
       then:
         - switch.toggle: relay_4
 
-  # Magnetic Reed Contact Sensor for Door Status (Open / Closed)
+  # Cảm biến má từ phát hiện cửa đóng/mở (Reed switch)
   - platform: gpio
     name: "Front Door Contact Sensor"
     id: front_door_contact
@@ -175,9 +198,8 @@ binary_sensor:
       inverted: true # Open = OFF, Closed = ON
     device_class: door
     filters:
-      - delayed_on_off: 100ms
+      - delayed_on_off: 100ms # Chong nhieu rung khi dong cua manh
 
-  # Node Status & Connection
   - platform: status
     name: "Living Room Controller Status"
 

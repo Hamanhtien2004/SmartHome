@@ -37,6 +37,31 @@ services:
       - smarthome_net
 
   # ==========================================
+  # Web Monitoring & Testing Management Dashboard
+  # ==========================================
+  web-dashboard:
+    container_name: web-dashboard
+    image: python:3.11-alpine
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - DASHBOARD_PORT=5000
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - HA_BASE_URL=http://homeassistant:8123
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    command: sh -c "pip install paho-mqtt requests && python web_dashboard/server.py"
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mosquitto
+    networks:
+      - smarthome_net
+
+  # ==========================================
   # Zigbee Bridge: Zigbee2MQTT
   # ==========================================
   zigbee2mqtt:

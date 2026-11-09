@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp32-cam-doorbell
   friendly_name: "Front Door AI Camera & Doorbell"
+  mqtt_broker_ip: "192.168.1.100" # Thay bang IP cua Host chay Mosquitto Docker
 
 esphome:
   name: ${node_name}
@@ -27,6 +28,8 @@ ota:
 wifi:
   ssid: "Your_WiFi_SSID"
   password: "Your_WiFi_Password"
+  fast_connect: true
+  power_save_mode: none
 
   ap:
     ssid: "ESP32-CAM-Fallback"
@@ -36,6 +39,21 @@ captive_portal:
 
 logger:
   level: INFO
+
+# ==============================================================================
+# MQTT INTEGRATION
+# ==============================================================================
+mqtt:
+  broker: ${mqtt_broker_ip}
+  port: 1883
+  topic_prefix: "esphome/cam_doorbell"
+  discovery: true
+  birth_message:
+    topic: "esphome/cam_doorbell/status"
+    payload: "online"
+  will_message:
+    topic: "esphome/cam_doorbell/status"
+    payload: "offline"
 
 # ==============================================================================
 # ESP32-CAM OV2640 PINOUT CONFIGURATION (AI-Thinker Board)
@@ -119,6 +137,7 @@ switch:
     name: "Front Door Strike Lock"
     id: door_lock_relay
     icon: "mdi:lock"
+    restore_mode: ALWAYS_OFF
     # Auto-relock pulse after 5 seconds
     on_turn_on:
       - delay: 5s

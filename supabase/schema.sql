@@ -152,3 +152,4 @@ ON CONFLICT (face_id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('security-snapshots', 'security-snapshots', true)
 ON CONFLICT (id) DO NOTHING;
+

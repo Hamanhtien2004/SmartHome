@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp32-bedroom-sensor
   friendly_name: "Bedroom Sensor & Radar Node"
+  mqtt_broker_ip: "192.168.1.100" # Thay bang IP cua Host chay Mosquitto Docker
 
 esphome:
   name: ${node_name}
@@ -26,6 +27,8 @@ ota:
 wifi:
   ssid: "Your_WiFi_SSID"
   password: "Your_WiFi_Password"
+  fast_connect: true
+  power_save_mode: none
 
   ap:
     ssid: "Bedroom-Sensor-Fallback"
@@ -35,9 +38,26 @@ captive_portal:
 
 logger:
   level: INFO
+  baud_rate: 115200
 
 web_server:
   port: 80
+
+# ==============================================================================
+# MQTT COEXISTENCE
+# Dong bo dong thoi cac gia tri cam bien vao cac MQTT Topic tieu chuan
+# ==============================================================================
+mqtt:
+  broker: ${mqtt_broker_ip}
+  port: 1883
+  topic_prefix: "esphome/bedroom_sensor"
+  discovery: true
+  birth_message:
+    topic: "esphome/bedroom_sensor/status"
+    payload: "online"
+  will_message:
+    topic: "esphome/bedroom_sensor/status"
+    payload: "offline"
 
 # Built-in Blue LED
 status_led:
@@ -74,10 +94,21 @@ sensor:
       name: "Bedroom Temperature"
       id: dht22_temp
       accuracy_decimals: 1
+      filters:
+        # Loc nhieu doc gia tri bat thuong (chi nhan gia tri trong khoang hop ly)
+        - filter_out: nan
+        - range:
+            min: 0.0
+            max: 60.0
     humidity:
       name: "Bedroom Humidity"
       id: dht22_humidity
       accuracy_decimals: 1
+      filters:
+        - filter_out: nan
+        - range:
+            min: 10.0
+            max: 100.0
     update_interval: 10s
 
   # --- LD2410 mmWave Distance & Energy Sensors ---
@@ -148,4 +179,3 @@ number:
       name: "Bedroom Radar Max Move Gate"
     max_still_distance_gate:
       name: "Bedroom Radar Max Still Gate"
-

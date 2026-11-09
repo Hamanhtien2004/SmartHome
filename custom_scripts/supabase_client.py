@@ -166,3 +166,4 @@ def get_authorized_family_members():
     except Exception as exc:
         logger.error("Error fetching family members from Supabase: %s", exc)
         return []
+

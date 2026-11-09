@@ -1,5 +1,6 @@
 # ==============================================================================
-# SMART HOME KIOSK DASHBOARD (Lovelace YAML Mode)
+# SMART HOME COMMAND & MONITORING CENTER (Lovelace YAML Mode)
+# Giao diện giám sát, điều khiển, chỉnh sửa tham số hoạt động trực quan
 # ==============================================================================
 title: "Smart Home Command Center"
 views:
@@ -19,7 +20,7 @@ views:
       - type: markdown
         title: "🏠 TRUNG TÂM ĐIỀU KHIỂN NHÀ THÔNG MINH"
         content: >
-          Hệ thống vận hành **Local-First** với nhận diện khuôn mặt CompreFace & đồng bộ Supabase.
+          Chế độ nhà hiện tại: **{{ states('input_select.house_mode') }}**
           
           Thời gian máy chủ: **{{ now().strftime('%H:%M - %A, %d/%m/%Y') }}**
 
@@ -95,7 +96,55 @@ views:
             name: "Độ ẩm (%)"
 
   # ----------------------------------------------------------------------------
-  # VIEW 2: KIỂM SOÁT RA VÀO & FACE ID (ACCESS CONTROL & LOGS)
+  # VIEW 2: CẤU HÌNH & CHỈNH SỬA THAM SỐ HOẠT ĐỘNG (PARAMETER TUNING)
+  # ----------------------------------------------------------------------------
+  - title: "Chỉnh sửa Cấu hình"
+    path: configuration
+    icon: mdi:tune-vertical
+    cards:
+      - type: entities
+        title: "⚙️ Tinh chỉnh Tham số Tự động hóa"
+        show_header_toggle: false
+        entities:
+          - entity: input_select.house_mode
+            name: "Chế độ hoạt động ngôi nhà"
+          - entity: input_number.face_recognition_threshold
+            name: "Ngưỡng tin cậy Face ID để mở cửa"
+          - entity: input_number.light_auto_off_delay
+            name: "Thời gian chờ tắt đèn khi vắng người"
+          - entity: input_number.door_unlock_duration
+            name: "Thời gian giữ mở chốt khóa cửa"
+          - entity: input_number.fan_temp_trigger_high
+            name: "Nhiệt độ kích hoạt bật quạt"
+          - entity: input_number.fan_temp_trigger_low
+            name: "Nhiệt độ tắt quạt khi đã mát"
+          - entity: input_number.security_cooldown_seconds
+            name: "Giãn cách gửi cảnh báo Telegram"
+
+      - type: entities
+        title: "🎛️ Bật / Tắt các Cơ chế Tự động"
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.face_recognition_auto_unlock
+            name: "Mở khóa tự động theo Face ID"
+          - entity: input_boolean.auto_lights_enabled
+            name: "Tự động bật/tắt đèn theo Radar"
+          - entity: input_boolean.auto_fan_enabled
+            name: "Tự động bật/tắt quạt theo nhiệt độ"
+          - entity: input_boolean.anti_spoofing_check
+            name: "Kiểm tra chống giả mạo khuôn mặt"
+          - entity: input_boolean.guest_mode
+            name: "Chế độ đón tiếp Khách (Guest Mode)"
+
+      - type: entities
+        title: "🌐 Cấu hình Địa chỉ Kết nối Ngoại vi"
+        show_header_toggle: false
+        entities:
+          - entity: input_text.esp32_cam_ip
+            name: "Địa chỉ IP Camera Chuông cửa"
+
+  # ----------------------------------------------------------------------------
+  # VIEW 3: KIỂM SOÁT RA VÀO & FACE ID (ACCESS CONTROL & LOGS)
   # ----------------------------------------------------------------------------
   - title: "Kiểm soát Ra vào"
     path: access-control
@@ -128,16 +177,16 @@ views:
         aspect_ratio: "16:9"
 
       - type: markdown
-        title: "👥 Danh sách Thành viên Gia đình Được Phép"
+        title: "👥 Danh sách Thành viên Gia đình (Supabase & CompreFace)"
         content: >
-          Các thành viên đã đăng ký Face ID trong **CompreFace**:
+          Các thành viên đã đăng ký Face ID trong hệ thống:
           
-          - 👤 **Chủ hộ (Admin)**: Mọi quyền ra vào cửa chính và các phòng
+          - 👤 **Chủ hộ (Admin)**: Toàn quyền ra vào cửa chính và tất cả phòng
           - 👤 **Thành viên gia đình**: Quyền ra vào cửa chính và phòng khách
-          - 👤 **Khách quen (Guest)**: Mở khóa cửa chính khi bật Guest Mode
+          - 👤 **Khách quen (Guest)**: Mở khóa khi bật Guest Mode
 
   # ----------------------------------------------------------------------------
-  # VIEW 3: CẢM BIẾN MÔI TRƯỜNG & RADAR (CLIMATE & SENSOR VIEW)
+  # VIEW 4: CẢM BIẾN MÔI TRƯỜNG & RADAR (CLIMATE & SENSOR VIEW)
   # ----------------------------------------------------------------------------
   - title: "Cảm biến & Radar"
     path: sensors
@@ -180,3 +229,32 @@ views:
             name: "Năng lượng chuyển động"
           - entity: sensor.bedroom_still_target_energy
             name: "Năng lượng mục tiêu tĩnh"
+
+  # ----------------------------------------------------------------------------
+  # VIEW 5: GIÁM SÁT TRẠNG THÁI THIẾT BỊ & HẠ TẦNG (DEVICE & SYSTEM HEALTH)
+  # ----------------------------------------------------------------------------
+  - title: "Trạng thái Thiết bị"
+    path: system-health
+    icon: mdi:server-network
+    cards:
+      - type: entities
+        title: "📶 Kết nối Mạng Các Node Phần Cứng (ESP32)"
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.living_room_node_online_status
+            name: "Node 1: Rơ-le Phòng khách & Khóa từ"
+          - entity: binary_sensor.bedroom_sensor_node_online_status
+            name: "Node 2: Cảm biến DHT22 & Radar mmWave"
+          - entity: binary_sensor.doorbell_camera_online_status
+            name: "Node 3: Camera Chuông cửa AI"
+
+      - type: markdown
+        title: "🐳 Cụm Dịch vụ Máy chủ (Docker Services)"
+        content: >
+          - 🏠 **Home Assistant Core**: `http://localhost:8123`
+          - 📡 **Mosquitto MQTT Broker**: `tcp://localhost:1883`
+          - 🧠 **CompreFace AI Admin**: `http://localhost:8000`
+          - 🎯 **Double-Take Hub**: `http://localhost:3000`
+          - ⚡ **ESPHome Dashboard**: `http://localhost:6052`
+          - 🔀 **Node-RED Automation**: `http://localhost:1880`
+          - ☁️ **Supabase Cloud DB**: PostgreSQL & Storage

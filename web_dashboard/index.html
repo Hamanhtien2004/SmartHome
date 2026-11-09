@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Home Command & Monitoring Center</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0b1120;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1rem;
+    }
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #3b82f6;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #3b82f6;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP NAVBAR -->
+  <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-house-signal text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            SMART HOME HUB
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Local-First</span>
+          </h1>
+          <p class="text-xs text-slate-400">Trung tâm Giám sát, Điều khiển & Hiệu chỉnh Tham số</p>
+        </div>
+      </div>
+
+      <!-- SYSTEM STATUS BADGES -->
+      <div class="flex items-center space-x-3 text-xs">
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="badge-mqtt"></span>
+          <span class="text-slate-300">MQTT: <b id="text-mqtt" class="text-emerald-400">Online</b></span>
+        </div>
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-blue-500" id="badge-supabase"></span>
+          <span class="text-slate-300">Supabase: <b id="text-supabase" class="text-blue-400">Active</b></span>
+        </div>
+        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300">
+          <i class="fa-regular fa-clock text-slate-400"></i>
+          <span id="server-time">--:--:--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="max-w-7xl mx-auto px-4 flex space-x-1 border-t border-slate-800/60 text-sm overflow-x-auto">
+      <button onclick="switchTab('tab-dashboard')" id="btn-tab-dashboard" class="tab-btn px-4 py-3 font-medium border-b-2 border-blue-500 text-blue-400 flex items-center gap-2">
+        <i class="fa-solid fa-sliders"></i> Giám sát & Điều khiển
+      </button>
+      <button onclick="switchTab('tab-settings')" id="btn-tab-settings" class="tab-btn px-4 py-3 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-gear"></i> Tinh chỉnh Tham số
+      </button>
+      <button onclick="switchTab('tab-simulator')" id="btn-tab-simulator" class="tab-btn px-4 py-3 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-flask"></i> Giả lập & Kiểm thử (Simulator)
+      </button>
+      <button onclick="switchTab('tab-logs')" id="btn-tab-logs" class="tab-btn px-4 py-3 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-clipboard-list"></i> Nhật ký Ra vào
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+
+    <!-- TAB 1: GIÁM SÁT & ĐIỀU KHIỂN (LIVE DASHBOARD) -->
+    <section id="tab-dashboard" class="tab-content space-y-6">
+      
+      <!-- HERO GRID: SECURITY & ACCESS CONTROL -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- CARD 1: KHÓA CỬA & FACE ID -->
+        <div class="glass-card p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Cửa chính & Face ID</h3>
+                <h2 class="text-xl font-bold text-white mt-1 flex items-center gap-2">
+                  <span id="lock-icon" class="text-amber-400"><i class="fa-solid fa-lock"></i></span>
+                  <span id="lock-status-text">Đang Khóa Chốt</span>
+                </h2>
+              </div>
+              <span class="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <i class="fa-solid fa-id-card-clip text-lg"></i>
+              </span>
+            </div>
+
+            <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Nhận diện gần nhất:</span>
+                <span class="font-bold text-white" id="latest-face-name">Nguyen Van A</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Độ tin cậy:</span>
+                <span class="font-bold text-emerald-400" id="latest-face-conf">94.5%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Trạng thái cánh cửa:</span>
+                <span class="font-semibold text-slate-300" id="door-contact-status">Đang Đóng</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex gap-3">
+            <button onclick="triggerUnlock()" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2">
+              <i class="fa-solid fa-lock-open"></i> MỞ KHÓA (5 Giây)
+            </button>
+          </div>
+        </div>
+
+        <!-- CARD 2: CHẾ ĐỘ AN NINH & BÁO ĐỘNG -->
+        <div class="glass-card p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Hệ thống An ninh</h3>
+                <h2 class="text-xl font-bold text-white mt-1 flex items-center gap-2" id="security-status-heading">
+                  <i class="fa-solid fa-shield-halved text-emerald-400"></i> Bình thường (Disarmed)
+                </h2>
+              </div>
+              <span class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i class="fa-solid fa-shield-virus text-lg"></i>
+              </span>
+            </div>
+
+            <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 text-xs">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">Chế độ Armed Away:</span>
+                <button onclick="toggleSecurityArmed()" id="btn-toggle-armed" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-semibold hover:bg-slate-700">
+                  TẮT
+                </button>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Chống giả mạo ảnh:</span>
+                <span class="text-emerald-400 font-medium">Bật (Active)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Còi báo động:</span>
+                <span class="text-slate-400 font-medium" id="siren-status">Sẵn sàng</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex gap-3">
+            <button onclick="simulateStrangerAlert()" class="flex-1 py-3 px-4 rounded-xl bg-rose-600/20 border border-rose-500/40 hover:bg-rose-600/30 text-rose-300 font-semibold transition-all flex items-center justify-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation"></i> Thử Cảnh Báo Khẩn
+            </button>
+          </div>
+        </div>
+
+        <!-- CARD 3: CẢM BIẾN MÔI TRƯỜNG & RADAR MMWAVE -->
+        <div class="glass-card p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Môi trường & Radar</h3>
+                <h2 class="text-xl font-bold text-white mt-1 flex items-center gap-2">
+                  <span id="temp-display" class="text-amber-400">28.5°C</span>
+                  <span class="text-slate-500">|</span>
+                  <span id="humidity-display" class="text-blue-400">65%</span>
+                </h2>
+              </div>
+              <span class="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <i class="fa-solid fa-satellite-dish text-lg"></i>
+              </span>
+            </div>
+
+            <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Hiện diện (Radar LD2410):</span>
+                <span class="font-bold text-emerald-400 flex items-center gap-1" id="radar-presence-badge">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Có người
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Khoảng cách mục tiêu:</span>
+                <span class="font-semibold text-slate-300" id="radar-distance-text">120 cm</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Năng lượng mục tiêu:</span>
+                <span class="font-semibold text-slate-300" id="radar-energy-text">45 / 100</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex gap-2">
+            <button onclick="simulateMotionToggle()" class="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-700 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-person-walking"></i> Đảo Hiện Diện Radar
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RELAY & LIGHTING HARDWARE CONTROLS -->
+      <div class="glass-card p-6">
+        <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-bolt text-yellow-400"></i> Điều Khiển Rơ-le Thiết Bị (ESP32 Livingroom Node)
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          
+          <!-- Relay 1: Main Light -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg" id="icon-relay-main_light">
+                <i class="fa-regular fa-lightbulb"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-sm text-white">Đèn Chính Trần</h4>
+                <p class="text-xs text-slate-400">GPIO16 (Active LOW)</p>
+              </div>
+            </div>
+            <button onclick="toggleRelay('main_light')" id="btn-relay-main_light" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-xs border border-slate-700 hover:bg-slate-700">
+              BẬT
+            </button>
+          </div>
+
+          <!-- Relay 2: Ambient Light -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-lg" id="icon-relay-ambient_light">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-sm text-white">Đèn Ambient Viền</h4>
+                <p class="text-xs text-slate-400">GPIO17 (Active LOW)</p>
+              </div>
+            </div>
+            <button onclick="toggleRelay('ambient_light')" id="btn-relay-ambient_light" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-xs border border-slate-700 hover:bg-slate-700">
+              BẬT
+            </button>
+          </div>
+
+          <!-- Relay 3: Fan -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-lg" id="icon-relay-ceiling_fan">
+                <i class="fa-solid fa-fan"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-sm text-white">Quạt Trần</h4>
+                <p class="text-xs text-slate-400">GPIO18 (Active LOW)</p>
+              </div>
+            </div>
+            <button onclick="toggleRelay('ceiling_fan')" id="btn-relay-ceiling_fan" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-xs border border-slate-700 hover:bg-slate-700">
+              BẬT
+            </button>
+          </div>
+
+          <!-- Relay 4: Aux Socket / Siren -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg" id="icon-relay-aux_socket">
+                <i class="fa-solid fa-plug"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-sm text-white">Ổ Cắm Phụ / Còi</h4>
+                <p class="text-xs text-slate-400">GPIO19 (Active LOW)</p>
+              </div>
+            </div>
+            <button onclick="toggleRelay('aux_socket')" id="btn-relay-aux_socket" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-xs border border-slate-700 hover:bg-slate-700">
+              BẬT
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- TAB 2: TINH CHỈNH THAM SỐ HOẠT ĐỘNG (PARAMETER TUNING) -->
+    <section id="tab-settings" class="tab-content hidden space-y-6">
+      <div class="glass-card p-6">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-white">Tinh Chỉnh Tham Số Tự Động Hóa Trực Quan</h2>
+            <p class="text-xs text-slate-400">Các tham số này được đồng bộ tức thì với Home Assistant và Supabase Database mà không cần chỉnh code</p>
+          </div>
+          <button onclick="saveSettings()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/20 flex items-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i> Lưu & Áp Dụng
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Slider 1: Face Confidence Threshold -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Ngưỡng tin cậy Face ID để mở khóa:</span>
+              <span class="font-bold text-blue-400" id="val-face-threshold">85%</span>
+            </div>
+            <input type="range" id="input-face-threshold" min="50" max="98" step="1" value="85" oninput="updateVal('face-threshold', this.value + '%')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            <p class="text-xs text-slate-500">Khuyến nghị 80% - 90%. Tránh nhận nhầm người lạ hoặc ảnh chụp lén.</p>
+          </div>
+
+          <!-- Slider 2: Light Auto-Off Delay -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Thời gian trễ tắt đèn sau khi vắng người:</span>
+              <span class="font-bold text-blue-400" id="val-light-delay">5 phút</span>
+            </div>
+            <input type="range" id="input-light-delay" min="1" max="30" step="1" value="5" oninput="updateVal('light-delay', this.value + ' phút')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            <p class="text-xs text-slate-500">Bộ đếm sẽ tự động reset nếu radar phát hiện người trở lại trong thời gian chờ.</p>
+          </div>
+
+          <!-- Slider 3: Fan High Trigger -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Nhiệt độ kích hoạt tự động bật quạt:</span>
+              <span class="font-bold text-amber-400" id="val-fan-high">30.0 °C</span>
+            </div>
+            <input type="range" id="input-fan-high" min="26" max="36" step="0.5" value="30.0" oninput="updateVal('fan-high', this.value + ' °C')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+            <p class="text-xs text-slate-500">Đọc trực tiếp từ cảm biến DHT22 phòng ngủ.</p>
+          </div>
+
+          <!-- Slider 4: Fan Low Trigger (Turn off) -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Nhiệt độ tự động tắt quạt khi phòng mát:</span>
+              <span class="font-bold text-cyan-400" id="val-fan-low">27.0 °C</span>
+            </div>
+            <input type="range" id="input-fan-low" min="20" max="28" step="0.5" value="27.0" oninput="updateVal('fan-low', this.value + ' °C')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <p class="text-xs text-slate-500">Vùng đệm trễ (Hysteresis) ngăn chặn quạt bật tắt liên tục khi nhiệt độ dao động.</p>
+          </div>
+
+          <!-- Slider 5: Door Unlock Pulse Duration -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Thời gian xung giữ mở chốt khóa cửa:</span>
+              <span class="font-bold text-indigo-400" id="val-unlock-duration">5 giây</span>
+            </div>
+            <input type="range" id="input-unlock-duration" min="2" max="15" step="1" value="5" oninput="updateVal('unlock-duration', this.value + ' giây')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            <p class="text-xs text-slate-500">Bảo vệ rơ-le và cuộn hút điện từ không bị nóng do giữ điện liên tục.</p>
+          </div>
+
+          <!-- Slider 6: Telegram Anti-Spam Cooldown -->
+          <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="font-semibold text-slate-300">Giãn cách gửi cảnh báo Telegram:</span>
+              <span class="font-bold text-rose-400" id="val-cooldown">30 giây</span>
+            </div>
+            <input type="range" id="input-cooldown" min="10" max="120" step="5" value="30" oninput="updateVal('cooldown', this.value + ' giây')" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500">
+            <p class="text-xs text-slate-500">Chống tràn tin nhắn Telegram khi đối tượng chuyển động liên tục trước camera.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: BẢNG GIẢ LẬP & KIỂM THỬ THIẾT BỊ (SIMULATOR) -->
+    <section id="tab-simulator" class="tab-content hidden space-y-6">
+      <div class="glass-card p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-vial text-emerald-400"></i> Bảng Giả Lập & Kiểm Thử Tương Tác Thiết Bị (Hardware Mock Tester)
+          </h2>
+          <p class="text-xs text-slate-400">
+            Công cụ này giúp bạn kiểm tra toàn bộ luồng truyền dữ liệu từ MQTT, Home Assistant, Telegram Bot đến Supabase Database mà <b>không cần kết nối phần cứng thật ngay lập tức</b>.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <!-- Mock 1: Family Face Match -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-face-smile"></i> Người Nhà Về Đến Cửa
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Giả lập nhận diện đúng thành viên "Nguyen Van A" với độ tin cậy 94.5%.</p>
+            </div>
+            <button onclick="simulateEvent('face_match', {person: 'Nguyen Van A', confidence: 94.5})" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+              Kích Hoạt Nhận Diện Đúng
+            </button>
+          </div>
+
+          <!-- Mock 2: Stranger Detected -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-rose-400 flex items-center gap-2">
+                <i class="fa-solid fa-user-secret"></i> Phát Hiện Người Lạ Trước Cửa
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Gửi cảnh báo khuôn mặt lạ (&lt;50%), kích hoạt Telegram Bot chụp ảnh và log Supabase.</p>
+            </div>
+            <button onclick="simulateEvent('stranger_detected', {})" class="w-full py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition">
+              Kích Hoạt Báo Động Người Lạ
+            </button>
+          </div>
+
+          <!-- Mock 3: Doorbell Ring -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-blue-400 flex items-center gap-2">
+                <i class="fa-solid fa-bell"></i> Có Khách Bấm Chuông
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Bắn tín hiệu GPIO13 của ESP32-CAM chuông cửa vào broker MQTT.</p>
+            </div>
+            <button onclick="simulateEvent('doorbell_ring', {})" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition">
+              Kích Hoạt Bấm Chuông
+            </button>
+          </div>
+
+          <!-- Mock 4: Radar Motion Detected -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-purple-400 flex items-center gap-2">
+                <i class="fa-solid fa-person-walking"></i> Radar mmWave Phát Hiện Người
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Kích hoạt tự động bật đèn phòng khách tức thì.</p>
+            </div>
+            <button onclick="simulateEvent('motion_trigger', {motion: true})" class="w-full py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition">
+              Bật Tín Hiệu Có Người
+            </button>
+          </div>
+
+          <!-- Mock 5: Radar No Person -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-slate-400 flex items-center gap-2">
+                <i class="fa-regular fa-moon"></i> Radar mmWave Vắng Người
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Khởi động bộ đếm hẹn giờ tắt đèn sau khoảng thời gian cài đặt.</p>
+            </div>
+            <button onclick="simulateEvent('motion_trigger', {motion: false})" class="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs transition">
+              Báo Vắng Người (Bắt đầu hẹn giờ tắt)
+            </button>
+          </div>
+
+          <!-- Mock 6: High Temperature Trigger -->
+          <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-temperature-arrow-up"></i> Nhiệt Độ Phòng Cao (32.5°C)
+              </h4>
+              <p class="text-xs text-slate-400 mt-1">Vượt ngưỡng 30°C -> Tự động kích hoạt Rơ-le quạt trần quay.</p>
+            </div>
+            <button onclick="simulateEvent('temp_change', {temp: 32.5, humidity: 72.0})" class="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition">
+              Kích Hoạt Tăng Nhiệt Độ (32.5°C)
+            </button>
+          </div>
+
+        </div>
+
+        <!-- LIVE EVENT LOG TERMINAL -->
+        <div class="mt-6 bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-800 text-slate-500">
+            <span>TERMINAL PHẢN HỒI THỰC THỜI (EVENT STREAM)</span>
+            <span class="text-emerald-500 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Live</span>
+          </div>
+          <div id="sim-terminal-log" class="space-y-1.5 max-h-48 overflow-y-auto">
+            <p class="text-slate-500">[Hệ thống] Trình mô phỏng sẵn sàng. Hãy bấm các nút bên trên để kiểm thử tương tác...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: NHẬT KÝ RA VÀO & SUPABASE (AUDIT LOGS) -->
+    <section id="tab-logs" class="tab-content hidden space-y-6">
+      <div class="glass-card p-6">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-white">Nhật Ký Ra Vào & Cảnh Báo An Ninh (Supabase Database)</h2>
+            <p class="text-xs text-slate-400">Danh sách các lượt mở cửa, nhận diện Face ID và cảnh báo người lạ được đồng bộ</p>
+          </div>
+          <button onclick="fetchLogs()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Làm mới
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Thời gian</th>
+                <th class="px-4 py-3">Đối tượng</th>
+                <th class="px-4 py-3">Địa điểm</th>
+                <th class="px-4 py-3">Phương thức</th>
+                <th class="px-4 py-3">Độ tin cậy</th>
+                <th class="px-4 py-3">Kết quả</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body" class="divide-y divide-slate-800/60 font-mono text-xs">
+              <tr>
+                <td colspan="6" class="px-4 py-6 text-center text-slate-500">Đang tải dữ liệu nhật ký...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500 bg-slate-900/40">
+    Hệ thống Smart Home Local-First & AI Face Recognition &bull; Vận hành trên nền tảng Docker, Home Assistant & Supabase
+  </footer>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let state = {};
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-400');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      document.getElementById(tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('btn-' + tabId);
+      if (activeBtn) {
+        activeBtn.classList.remove('border-transparent', 'text-slate-400');
+        activeBtn.classList.add('border-blue-500', 'text-blue-400');
+      }
+
+      if (tabId === 'tab-logs') {
+        fetchLogs();
+      }
+    }
+
+    function updateVal(id, text) {
+      document.getElementById('val-' + id).innerText = text;
+    }
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        state = await res.json();
+        renderState();
+      } catch (e) {
+        console.error("Fetch state error:", e);
+      }
+    }
+
+    function renderState() {
+      if (!state.system) return;
+
+      // Badges & Time
+      document.getElementById('server-time').innerText = state.system.server_time || '--:--:--';
+      document.getElementById('badge-mqtt').className = state.system.mqtt_connected ? 'w-2 h-2 rounded-full bg-emerald-500' : 'w-2 h-2 rounded-full bg-rose-500';
+      document.getElementById('text-mqtt').innerText = state.system.mqtt_connected ? 'Online' : 'Offline';
+      document.getElementById('text-mqtt').className = state.system.mqtt_connected ? 'text-emerald-400' : 'text-rose-400';
+
+      // Lock status
+      const isLocked = state.security.door_lock_engaged;
+      document.getElementById('lock-status-text').innerText = isLocked ? 'Đang Khóa Chốt' : 'Đang Mở Khóa';
+      document.getElementById('lock-icon').innerHTML = isLocked ? '<i class="fa-solid fa-lock text-amber-400"></i>' : '<i class="fa-solid fa-lock-open text-emerald-400"></i>';
+
+      // Face match
+      document.getElementById('latest-face-name').innerText = state.security.latest_face_match || 'None';
+      document.getElementById('latest-face-conf').innerText = (state.security.latest_face_confidence || 0) + '%';
+      document.getElementById('door-contact-status').innerText = state.security.door_contact_open ? 'Đang Mở' : 'Đang Đóng';
+
+      // Sensors
+      document.getElementById('temp-display').innerText = state.sensors.temperature + '°C';
+      document.getElementById('humidity-display').innerText = state.sensors.humidity + '%';
+      document.getElementById('radar-distance-text').innerText = state.sensors.radar_distance + ' cm';
+      document.getElementById('radar-energy-text').innerText = state.sensors.radar_energy + ' / 100';
+
+      const hasRadar = state.sensors.radar_presence;
+      document.getElementById('radar-presence-badge').innerHTML = hasRadar 
+        ? '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Có người' 
+        : '<span class="w-2 h-2 rounded-full bg-slate-500"></span> Vắng người';
+      document.getElementById('radar-presence-badge').className = hasRadar ? 'font-bold text-emerald-400 flex items-center gap-1' : 'font-semibold text-slate-400 flex items-center gap-1';
+
+      // Security
+      const isArmed = state.security.armed_away;
+      document.getElementById('btn-toggle-armed').innerText = isArmed ? 'BẬT' : 'TẮT';
+      document.getElementById('btn-toggle-armed').className = isArmed 
+        ? 'px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold' 
+        : 'px-3 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-semibold';
+
+      // Relays
+      ['main_light', 'ambient_light', 'ceiling_fan', 'aux_socket'].forEach(r => {
+        const on = state.relays[r];
+        const btn = document.getElementById('btn-relay-' + r);
+        const icon = document.getElementById('icon-relay-' + r);
+        if (btn) {
+          btn.innerText = on ? 'TẮT' : 'BẬT';
+          btn.className = on 
+            ? 'px-4 py-2 rounded-lg bg-blue-600 text-white font-medium text-xs shadow-md shadow-blue-500/20' 
+            : 'px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium text-xs border border-slate-700 hover:bg-slate-700';
+        }
+      });
+    }
+
+    async function toggleRelay(relayName) {
+      const currentState = state.relays[relayName];
+      await fetch('/api/control/relay', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({relay: relayName, state: !currentState})
+      });
+      fetchState();
+    }
+
+    async function triggerUnlock() {
+      await fetch('/api/control/unlock', {method: 'POST'});
+      fetchState();
+      logTerminal("Lệnh mở khóa cửa chính (5s) đã được gửi thành công!");
+    }
+
+    async function toggleSecurityArmed() {
+      const armed = !state.security.armed_away;
+      await fetch('/api/control/security', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({armed_away: armed})
+      });
+      fetchState();
+    }
+
+    async function saveSettings() {
+      const payload = {
+        face_threshold: document.getElementById('input-face-threshold').value,
+        light_off_delay: document.getElementById('input-light-delay').value,
+        fan_temp_high: document.getElementById('input-fan-high').value,
+        fan_temp_low: document.getElementById('input-fan-low').value,
+        unlock_duration: document.getElementById('input-unlock-duration').value,
+        cooldown_seconds: document.getElementById('input-cooldown').value
+      };
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      alert("Đã lưu và áp dụng tham số cấu hình thành công!");
+      fetchState();
+    }
+
+    async function simulateEvent(type, data) {
+      const payload = Object.assign({type: type}, data);
+      const res = await fetch('/api/simulate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      logTerminal(`[Simulate: ${type}] Đã kích hoạt -> Trạng thái cập nhật!`);
+      fetchState();
+    }
+
+    function simulateStrangerAlert() {
+      simulateEvent('stranger_detected', {});
+      logTerminal("🚨 ĐÃ KÍCH HOẠT BÁO ĐỘNG NGƯỜI LẠ! (Gửi ảnh snapshot sang Telegram)");
+    }
+
+    function simulateMotionToggle() {
+      const current = state.sensors.radar_presence;
+      simulateEvent('motion_trigger', {motion: !current});
+    }
+
+    function logTerminal(msg) {
+      const term = document.getElementById('sim-terminal-log');
+      const time = new Date().toLocaleTimeString();
+      const p = document.createElement('p');
+      p.className = 'text-slate-300';
+      p.innerHTML = `<span class="text-blue-400">[${time}]</span> ${msg}`;
+      term.insertBefore(p, term.firstChild);
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        const data = await res.json();
+        const tbody = document.getElementById('logs-table-body');
+        tbody.innerHTML = '';
+        if (data.logs && data.logs.length > 0) {
+          data.logs.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-900/40 border-b border-slate-800/40';
+            const person = item.person_name || item.person || 'Unknown';
+            const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : (item.time || '--:--');
+            const conf = item.confidence_score !== undefined ? item.confidence_score + '%' : (item.desc || '--');
+            const granted = item.access_granted !== undefined ? (item.access_granted ? '<span class="text-emerald-400 font-bold">MỞ CỬA</span>' : '<span class="text-rose-400 font-bold">TỪ CHỐI</span>') : '<span class="text-blue-400">LOG</span>';
+            tr.innerHTML = `
+              <td class="px-4 py-3">${time}</td>
+              <td class="px-4 py-3 font-semibold text-white">${person}</td>
+              <td class="px-4 py-3 text-slate-400">${item.location || 'front_door'}</td>
+              <td class="px-4 py-3">${item.auth_method || 'face_recognition'}</td>
+              <td class="px-4 py-3">${conf}</td>
+              <td class="px-4 py-3">${granted}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Chưa có bản ghi nhật ký nào.</td></tr>';
+        }
+      } catch (e) {
+        console.error("Fetch logs error:", e);
+      }
+    }
+
+    // Auto-polling state every 2 seconds
+    fetchState();
+    setInterval(fetchState, 2000);
+  </script>
+</body>
+</html>
