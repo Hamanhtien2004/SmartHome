@@ -1,0 +1,163 @@
+substitutions:
+  node_name: esp32-livingroom-relay
+  friendly_name: "Living Room Relay Controller"
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  comment: "ESP32 4-Channel Relay Node with Physical Switch Fallback"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable native Home Assistant API
+api:
+  encryption:
+    key: "ReplaceWithYourGenerated32ByteBase64Key="
+
+# Over-The-Air firmware updates
+ota:
+  platform: esphome
+  password: "admin_ota_password"
+
+# Wi-Fi Configuration
+wifi:
+  ssid: "Your_WiFi_SSID"
+  password: "Your_WiFi_Password"
+
+  # Fallback AP when WiFi network is unavailable
+  ap:
+    ssid: "LivingRoom-Relay-Fallback"
+    password: "fallbackpassword123"
+
+captive_portal:
+
+logger:
+  level: INFO
+
+# Local Web Server for emergency standalone control
+web_server:
+  port: 80
+
+# Built-in Blue LED for status indication
+status_led:
+  pin:
+    number: GPIO2
+    inverted: false
+
+# ==============================================================================
+# RELAY OUTPUTS (Active LOW Relay Module)
+# ==============================================================================
+switch:
+  - platform: gpio
+    name: "Living Room Main Light"
+    id: relay_1
+    pin:
+      number: GPIO16
+      inverted: true
+    icon: "mdi:lightbulb"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: gpio
+    name: "Living Room Ambient Light"
+    id: relay_2
+    pin:
+      number: GPIO17
+      inverted: true
+    icon: "mdi:wall-sconce-flat"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: gpio
+    name: "Living Room Ceiling Fan"
+    id: relay_3
+    pin:
+      number: GPIO18
+      inverted: true
+    icon: "mdi:fan"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: gpio
+    name: "Living Room Aux Socket"
+    id: relay_4
+    pin:
+      number: GPIO19
+      inverted: true
+    icon: "mdi:power-socket-eu"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: restart
+    name: "Living Room Controller Restart"
+
+# ==============================================================================
+# PHYSICAL WALL SWITCHES (Input with Debounce & Local Action)
+# Allows switches to work even when Wi-Fi or Home Assistant is offline
+# ==============================================================================
+binary_sensor:
+  - platform: gpio
+    name: "Wall Switch 1"
+    pin:
+      number: GPIO32
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_1
+
+  - platform: gpio
+    name: "Wall Switch 2"
+    pin:
+      number: GPIO33
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_2
+
+  - platform: gpio
+    name: "Wall Switch 3"
+    pin:
+      number: GPIO25
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_3
+
+  - platform: gpio
+    name: "Wall Switch 4"
+    pin:
+      number: GPIO26
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_4
+
+  # Node Status & Connection
+  - platform: status
+    name: "Living Room Controller Status"
+
+sensor:
+  - platform: wifi_signal
+    name: "Living Room WiFi Signal RSSI"
+    update_interval: 60s
+  - platform: uptime
+    name: "Living Room Controller Uptime"

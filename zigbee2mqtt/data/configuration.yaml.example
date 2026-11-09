@@ -1,0 +1,14 @@
+# Zigbee2MQTT Configuration Template
+homeassistant: true
+permit_join: true
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+serial:
+  port: /dev/ttyUSB0 # Replace with COM port (Windows) or /dev/serial/by-id/... (Linux)
+  adapter: ember # or zstack depending on your Zigbee coordinator chip
+frontend:
+  port: 8080
+advanced:
+  log_level: info
+  channel: 20

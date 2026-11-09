@@ -1,0 +1,55 @@
+# Git ignore for Smart Home Local-first IoT Project
+
+# Environment variables & secrets
+.env
+.env.local
+secrets.yaml
+
+# Home Assistant
+ha_config/.storage/
+ha_config/home-assistant.log
+ha_config/home-assistant_v2.db
+ha_config/home-assistant_v2.db-shm
+ha_config/home-assistant_v2.db-wal
+ha_config/.HA_RESTORE_STATE
+ha_config/tts/
+
+# Mosquitto MQTT
+mosquitto/data/
+mosquitto/log/
+*.log
+
+# Zigbee2MQTT
+zigbee2mqtt/data/configuration.yaml
+zigbee2mqtt/data/database.db
+zigbee2mqtt/data/database.db.backup
+zigbee2mqtt/data/state.json
+zigbee2mqtt/data/coordinator_backup.json
+zigbee2mqtt/data/log/
+
+# Node-RED
+nodered_data/
+node_modules/
+
+# ESPHome build cache & secrets
+.esphome/
+esphome_nodes/secrets.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp

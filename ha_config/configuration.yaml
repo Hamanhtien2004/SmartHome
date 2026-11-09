@@ -1,0 +1,67 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Home Assistant Core Configurations
+homeassistant:
+  name: "Smart Home Hub"
+  unit_system: metric
+  time_zone: Asia/Ho_Chi_Minh
+  currency: VND
+  country: VN
+
+# Frontend & Custom UI Lovelace Mode
+frontend:
+  themes: !include_dir_merge_named themes
+
+lovelace:
+  mode: yaml
+  resources: []
+
+# HTTP Configuration (Reverse Proxy & Local Network)
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+
+# MQTT Integration
+# Note: Modern Home Assistant primarily configures MQTT via UI Integration.
+# Manual YAML configuration below declares local topics and helper entities.
+mqtt:
+  sensor:
+    - name: "Living Room Temp (MQTT)"
+      state_topic: "esphome/bedroom_sensor/sensor/dht22_temperature/state"
+      unit_of_measurement: "°C"
+      device_class: "temperature"
+    - name: "Living Room Humidity (MQTT)"
+      state_topic: "esphome/bedroom_sensor/sensor/dht22_humidity/state"
+      unit_of_measurement: "%"
+      device_class: "humidity"
+  binary_sensor:
+    - name: "Bedroom mmWave Target Movement"
+      state_topic: "esphome/bedroom_sensor/binary_sensor/ld2410_has_moving_target/state"
+      payload_on: "ON"
+      payload_off: "OFF"
+      device_class: "motion"
+    - name: "Bedroom mmWave Target Presence"
+      state_topic: "esphome/bedroom_sensor/binary_sensor/ld2410_has_target/state"
+      payload_on: "ON"
+      payload_off: "OFF"
+      device_class: "occupancy"
+
+# Input Helpers for Security System
+input_boolean:
+  security_armed_away:
+    name: "Hệ thống An ninh (Armed Away)"
+    icon: mdi:shield-lock
+    initial: false
+  vacation_mode:
+    name: "Chế độ Vắng nhà (Vacation Mode)"
+    icon: mdi:airplane
+    initial: false
+
+# Includes
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

@@ -1,0 +1,150 @@
+substitutions:
+  node_name: esp32-bedroom-sensor
+  friendly_name: "Bedroom Sensor & Radar Node"
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  comment: "ESP32 Bedroom Sensor: DHT22 (Temp/Humidity) & HLK-LD2410 (24GHz mmWave Presence)"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Native Home Assistant API
+api:
+  encryption:
+    key: "ReplaceWithYourGenerated32ByteBase64Key="
+
+# OTA Updates
+ota:
+  platform: esphome
+  password: "admin_ota_password"
+
+# Wi-Fi Settings
+wifi:
+  ssid: "Your_WiFi_SSID"
+  password: "Your_WiFi_Password"
+
+  ap:
+    ssid: "Bedroom-Sensor-Fallback"
+    password: "fallbackpassword123"
+
+captive_portal:
+
+logger:
+  level: INFO
+
+web_server:
+  port: 80
+
+# Built-in Blue LED
+status_led:
+  pin:
+    number: GPIO2
+    inverted: false
+
+# ==============================================================================
+# UART BUS FOR HLK-LD2410 24GHz mmWave RADAR
+# Default baud rate for LD2410 is 256000
+# ==============================================================================
+uart:
+  - id: ld2410_uart
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 256000
+    parity: NONE
+    stop_bits: 1
+
+ld2410:
+  id: my_ld2410
+  uart_id: ld2410_uart
+  throttle_factor: 2
+
+# ==============================================================================
+# SENSORS (DHT22 & LD2410 Radar Metrics)
+# ==============================================================================
+sensor:
+  # --- DHT22 Temperature & Humidity Sensor (Pin GPIO4 with 4.7k-10k pullup) ---
+  - platform: dht
+    pin: GPIO4
+    model: DHT22
+    temperature:
+      name: "Bedroom Temperature"
+      id: dht22_temp
+      accuracy_decimals: 1
+    humidity:
+      name: "Bedroom Humidity"
+      id: dht22_humidity
+      accuracy_decimals: 1
+    update_interval: 10s
+
+  # --- LD2410 mmWave Distance & Energy Sensors ---
+  - platform: ld2410
+    moving_target_distance:
+      name: "Bedroom Moving Target Distance"
+      unit_of_measurement: "cm"
+    still_target_distance:
+      name: "Bedroom Still Target Distance"
+      unit_of_measurement: "cm"
+    moving_target_energy:
+      name: "Bedroom Moving Target Energy"
+    still_target_energy:
+      name: "Bedroom Still Target Energy"
+    detection_distance:
+      name: "Bedroom Radar Detection Distance"
+
+  # System Health Metrics
+  - platform: wifi_signal
+    name: "Bedroom Sensor WiFi RSSI"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Bedroom Sensor Uptime"
+
+# ==============================================================================
+# BINARY SENSORS (Presence & Motion Detection)
+# ==============================================================================
+binary_sensor:
+  # Overall Presence (Moving OR Still target detected)
+  - platform: ld2410
+    has_target:
+      name: "Bedroom mmWave Presence"
+      id: bedroom_mmwave_presence
+      device_class: occupancy
+
+    has_moving_target:
+      name: "Bedroom mmWave Moving Motion"
+      id: bedroom_mmwave_motion
+      device_class: motion
+
+    has_still_target:
+      name: "Bedroom mmWave Still Presence"
+      id: bedroom_mmwave_still
+      device_class: occupancy
+
+  - platform: status
+    name: "Bedroom Sensor Node Status"
+
+# ==============================================================================
+# SWITCHES & NUMBER CONTROLS (Radar Tuning)
+# ==============================================================================
+switch:
+  - platform: ld2410
+    engineering_mode:
+      name: "Bedroom Radar Engineering Mode"
+    bluetooth:
+      name: "Bedroom Radar Bluetooth Configuration"
+
+  - platform: restart
+    name: "Bedroom Sensor Node Restart"
+
+number:
+  - platform: ld2410
+    timeout:
+      name: "Bedroom Radar Disappear Timeout"
+    max_move_distance_gate:
+      name: "Bedroom Radar Max Move Gate"
+    max_still_distance_gate:
+      name: "Bedroom Radar Max Still Gate"

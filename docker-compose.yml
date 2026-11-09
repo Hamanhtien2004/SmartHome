@@ -1,0 +1,100 @@
+services:
+  # ==========================================
+  # Core Hub: Home Assistant
+  # ==========================================
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - TZ=${TIMEZONE:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./ha_config:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8123:8123"
+    depends_on:
+      - mosquitto
+    networks:
+      - smarthome_net
+
+  # ==========================================
+  # Message Broker: Mosquitto MQTT
+  # ==========================================
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - smarthome_net
+
+  # ==========================================
+  # Zigbee Bridge: Zigbee2MQTT
+  # ==========================================
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: koenkk/zigbee2mqtt:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    ports:
+      - "8080:8080" # Web frontend
+    # Note: On Linux host with USB Zigbee Dongle (e.g. Sonoff ZBDongle-E/P), uncomment the device mapping below:
+    # devices:
+    #   - /dev/ttyUSB0:/dev/ttyUSB0
+    depends_on:
+      - mosquitto
+    networks:
+      - smarthome_net
+
+  # ==========================================
+  # Flow Automation: Node-RED
+  # ==========================================
+  nodered:
+    container_name: nodered
+    image: nodered/node-red:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./nodered_data:/data
+    ports:
+      - "1880:1880"
+    depends_on:
+      - homeassistant
+      - mosquitto
+    networks:
+      - smarthome_net
+
+  # ==========================================
+  # ESPHome Dashboard (Firmware Compiler & OTA)
+  # ==========================================
+  esphome:
+    container_name: esphome
+    image: ghcr.io/esphome/esphome:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE:-Asia/Ho_Chi_Minh}
+      - ESPHOME_DASHBOARD_USE_PING=true
+    volumes:
+      - ./esphome_nodes:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "6052:6052"
+    networks:
+      - smarthome_net
+
+networks:
+  smarthome_net:
+    driver: bridge

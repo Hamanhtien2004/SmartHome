@@ -1,0 +1,109 @@
+# ==============================================================================
+# Home Assistant Core Automations
+# ==============================================================================
+
+# 1. Tự động bật đèn khi phát hiện có người (LD2410 mmWave presence)
+- id: "automation_livingroom_light_auto_on"
+  alias: "Smart Light - Bật đèn khi có người hiện diện"
+  description: "Bật đèn phòng khách khi cảm biến mmWave LD2410 phát hiện có người"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.bedroom_mmwave_presence
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: switch.living_room_main_light
+      state: "off"
+    # Tùy chọn: chỉ bật vào buổi tối hoặc khi trời tối (sau hoàng hôn đến trước bình minh)
+    # - condition: sun
+    #   after: sunset
+    #   before: sunrise
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.living_room_main_light
+  mode: single
+
+# 2. Tự động tắt đèn khi không còn người trong phòng sau 5 phút
+- id: "automation_livingroom_light_auto_off"
+  alias: "Smart Light - Tắt đèn khi không có người"
+  description: "Tắt đèn phòng khách sau khi không còn hiện diện trong 5 phút"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.bedroom_mmwave_presence
+      to: "off"
+      for:
+        minutes: 5
+  condition:
+    - condition: state
+      entity_id: switch.living_room_main_light
+      state: "on"
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.living_room_main_light
+  mode: restart
+
+# 3. Cảnh báo an ninh: Phát hiện chuyển động khi đang kích hoạt Armed Away
+- id: "automation_security_motion_alert"
+  alias: "Security - Cảnh báo đột nhập khi vắng nhà"
+  description: "Gửi cảnh báo và kích hoạt bot khi có chuyển động trong chế độ Armed Away"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.bedroom_mmwave_motion
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: input_boolean.security_armed_away
+      state: "on"
+  action:
+    # Gửi thông báo cục bộ qua persistent_notification
+    - service: persistent_notification.create
+      data:
+        title: "⚠️ CẢNH BÁO ĐỘT NHẬP!"
+        message: "Phát hiện chuyển động bất thường trong nhà lúc {{ now().strftime('%H:%M:%S %d/%m/%Y') }}!"
+        notification_id: "security_alert"
+    # Phát sự kiện để Telegram Bot hoặc Webhook xử lý
+    - event: smart_home_security_alert
+      event_data:
+        sensor: "bedroom_mmwave_motion"
+        location: "Khu vực Cảm biến Radar Phòng ngủ"
+        timestamp: "{{ now().isoformat() }}"
+        alert_level: "HIGH"
+  mode: single
+
+# 4. Tự động bật quạt khi nhiệt độ phòng vượt ngưỡng (DHT22)
+- id: "automation_climate_fan_temp_high"
+  alias: "Climate - Tự động bật quạt khi nhiệt độ cao"
+  description: "Bật quạt khi nhiệt độ đo từ DHT22 > 30°C"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.bedroom_temperature
+      above: 30.0
+  condition:
+    - condition: state
+      entity_id: switch.living_room_ceiling_fan
+      state: "off"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.living_room_ceiling_fan
+  mode: single
+
+# 5. Tự động tắt quạt khi nhiệt độ hạ nhiệt < 27°C
+- id: "automation_climate_fan_temp_cool"
+  alias: "Climate - Tự động tắt quạt khi phòng mát"
+  description: "Tắt quạt khi nhiệt độ đo từ DHT22 < 27°C"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.bedroom_temperature
+      below: 27.0
+  condition:
+    - condition: state
+      entity_id: switch.living_room_ceiling_fan
+      state: "on"
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.living_room_ceiling_fan
+  mode: single

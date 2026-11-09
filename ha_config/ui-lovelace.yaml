@@ -1,0 +1,136 @@
+# ==============================================================================
+# SMART HOME KIOSK DASHBOARD (Lovelace YAML Mode)
+# ==============================================================================
+title: "Smart Home Command Center"
+views:
+  # ----------------------------------------------------------------------------
+  # VIEW 1: TỔNG QUAN / OVERVIEW (KIOSK VIEW)
+  # ----------------------------------------------------------------------------
+  - title: "Tổng quan"
+    path: overview
+    icon: mdi:view-dashboard
+    type: custom:grid-layout # Tương thích chế độ lưới Kiosk
+    layout:
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
+      grid-gap: 12px
+    badges: []
+    cards:
+      # Header Card: Trạng thái hệ thống & Giờ
+      - type: markdown
+        title: "🏠 TRUNG TÂM ĐIỀU KHIỂN NHÀ THÔNG MINH"
+        content: >
+          Hệ thống vận hành **Local-First** qua Docker, Mosquitto MQTT & ESPHome.
+          
+          Thời gian máy chủ: **{{ now().strftime('%H:%M - %A, %d/%m/%Y') }}**
+
+      # Card 1: Chế độ an ninh & Báo động
+      - type: entities
+        title: "🛡️ Trạng thái An ninh"
+        icon: mdi:security
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.security_armed_away
+            name: "Chế độ Bảo vệ (Armed Away)"
+            icon: mdi:shield-lock-outline
+          - entity: input_boolean.vacation_mode
+            name: "Chế độ Vắng nhà dài ngày"
+            icon: mdi:home-export-outline
+          - entity: binary_sensor.bedroom_mmwave_presence
+            name: "Hiện diện người (LD2410 Radar)"
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.bedroom_mmwave_motion
+            name: "Chuyển động tức thì"
+            icon: mdi:run-fast
+
+      # Card 2: Cụm điều khiển Rơ-le Đèn & Quạt (Living Room Relays)
+      - type: entities
+        title: "💡 Điều khiển Thiết bị Phòng Khách"
+        icon: mdi:ceiling-light
+        show_header_toggle: true
+        entities:
+          - entity: switch.living_room_main_light
+            name: "Đèn chính trần"
+            icon: mdi:lightbulb-group
+          - entity: switch.living_room_ambient_light
+            name: "Đèn hắt viền / Ambient"
+            icon: mdi:wall-sconce-flat
+          - entity: switch.living_room_ceiling_fan
+            name: "Quạt trần phòng khách"
+            icon: mdi:fan
+          - entity: switch.living_room_aux_socket
+            name: "Ổ cắm phụ trợ (Aux)"
+            icon: mdi:power-socket-eu
+
+      # Card 3: Camera giám sát an ninh (Kèm chế độ Live stream)
+      - type: picture-entity
+        title: "📹 Camera An ninh Cửa chính"
+        entity: camera.front_door_stream
+        camera_view: live
+        show_name: true
+        show_state: true
+        aspect_ratio: "16:9"
+        # Dự phòng hiển thị hình ảnh nếu camera chưa kết nối
+        image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=800&q=80"
+
+      # Card 4: Biểu đồ lịch sử Nhiệt độ & Độ ẩm (DHT22)
+      - type: history-graph
+        title: "📈 Biểu đồ Môi trường 24 Giờ (DHT22 Sensor)"
+        hours_to_show: 24
+        refresh_interval: 30
+        entities:
+          - entity: sensor.bedroom_temperature
+            name: "Nhiệt độ (°C)"
+          - entity: sensor.bedroom_humidity
+            name: "Độ ẩm (%)"
+
+  # ----------------------------------------------------------------------------
+  # VIEW 2: CẢM BIẾN MÔI TRƯỜNG & RADAR (CLIMATE & SENSOR VIEW)
+  # ----------------------------------------------------------------------------
+  - title: "Cảm biến & Radar"
+    path: sensors
+    icon: mdi:radar
+    cards:
+      # Gauge Card: Nhiệt độ hiện tại
+      - type: gauge
+        entity: sensor.bedroom_temperature
+        name: "Nhiệt độ phòng ngủ"
+        min: 15
+        max: 45
+        needle: true
+        severity:
+          green: 22
+          yellow: 28
+          red: 34
+
+      # Gauge Card: Độ ẩm hiện tại
+      - type: gauge
+        entity: sensor.bedroom_humidity
+        name: "Độ ẩm phòng ngủ"
+        min: 20
+        max: 100
+        needle: true
+        severity:
+          green: 45
+          yellow: 65
+          red: 80
+
+      # Thông số Radar HLK-LD2410 mmWave chi tiết
+      - type: entities
+        title: "📡 Chi tiết Radar mmWave HLK-LD2410"
+        entities:
+          - entity: binary_sensor.bedroom_mmwave_presence
+            name: "Trạng thái hiện diện"
+          - entity: binary_sensor.bedroom_mmwave_still
+            name: "Phát hiện mục tiêu tĩnh (Hơi thở)"
+          - entity: sensor.bedroom_moving_target_distance
+            name: "Khoảng cách mục tiêu động"
+          - entity: sensor.bedroom_still_target_distance
+            name: "Khoảng cách mục tiêu tĩnh"
+          - entity: sensor.bedroom_moving_target_energy
+            name: "Năng lượng chuyển động"
+          - entity: sensor.bedroom_still_target_energy
+            name: "Năng lượng mục tiêu tĩnh"
+          - entity: switch.bedroom_radar_engineering_mode
+            name: "Chế độ Radar Engineering"
+          - entity: switch.bedroom_radar_bluetooth_configuration
+            name: "Bật Bluetooth cấu hình Radar"
