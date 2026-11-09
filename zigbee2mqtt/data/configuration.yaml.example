@@ -12,3 +12,4 @@ frontend:
 advanced:
   log_level: info
   channel: 20
+

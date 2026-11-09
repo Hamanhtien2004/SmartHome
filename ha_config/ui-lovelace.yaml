@@ -134,3 +134,4 @@ views:
             name: "Chế độ Radar Engineering"
           - entity: switch.bedroom_radar_bluetooth_configuration
             name: "Bật Bluetooth cấu hình Radar"
+

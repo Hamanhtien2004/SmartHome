@@ -161,3 +161,4 @@ sensor:
     update_interval: 60s
   - platform: uptime
     name: "Living Room Controller Uptime"
+

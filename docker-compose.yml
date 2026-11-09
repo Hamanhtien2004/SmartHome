@@ -98,3 +98,4 @@ services:
 networks:
   smarthome_net:
     driver: bridge
+
