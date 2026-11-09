@@ -1,11 +1,11 @@
 substitutions:
   node_name: esp32-livingroom-relay
-  friendly_name: "Living Room Relay Controller"
+  friendly_name: "Living Room & Door Lock Controller"
 
 esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
-  comment: "ESP32 4-Channel Relay Node with Physical Switch Fallback"
+  comment: "ESP32 4-Channel Relay Node + Magnetic Door Lock & Door Contact Sensor"
 
 esp32:
   board: esp32dev
@@ -48,7 +48,7 @@ status_led:
     inverted: false
 
 # ==============================================================================
-# RELAY OUTPUTS (Active LOW Relay Module)
+# RELAY OUTPUTS (Lights, Fan & Access Control Lock)
 # ==============================================================================
 switch:
   - platform: gpio
@@ -87,12 +87,24 @@ switch:
     icon: "mdi:power-socket-eu"
     restore_mode: RESTORE_DEFAULT_OFF
 
+  # Electronic Door Strike / Drop-bolt Lock Relay (GPIO23)
+  - platform: gpio
+    name: "Front Door Lock Electronic Relay"
+    id: front_door_lock_relay
+    pin:
+      number: GPIO23
+      inverted: true
+    icon: "mdi:door-closed-lock"
+    # Auto re-lock after 5 seconds pulse for safety
+    on_turn_on:
+      - delay: 5s
+      - switch.turn_off: front_door_lock_relay
+
   - platform: restart
     name: "Living Room Controller Restart"
 
 # ==============================================================================
-# PHYSICAL WALL SWITCHES (Input with Debounce & Local Action)
-# Allows switches to work even when Wi-Fi or Home Assistant is offline
+# PHYSICAL WALL SWITCHES & MAGNETIC DOOR SENSORS
 # ==============================================================================
 binary_sensor:
   - platform: gpio
@@ -151,6 +163,20 @@ binary_sensor:
       then:
         - switch.toggle: relay_4
 
+  # Magnetic Reed Contact Sensor for Door Status (Open / Closed)
+  - platform: gpio
+    name: "Front Door Contact Sensor"
+    id: front_door_contact
+    pin:
+      number: GPIO27
+      mode:
+        input: true
+        pullup: true
+      inverted: true # Open = OFF, Closed = ON
+    device_class: door
+    filters:
+      - delayed_on_off: 100ms
+
   # Node Status & Connection
   - platform: status
     name: "Living Room Controller Status"
@@ -161,4 +187,3 @@ sensor:
     update_interval: 60s
   - platform: uptime
     name: "Living Room Controller Uptime"
-

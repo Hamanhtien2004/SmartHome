@@ -1,252 +1,226 @@
-# 🏡 Local-First Smart Home & AI Agent System
+# 🏡 Local-First Smart Home, AI Face Recognition & Supabase System
 
-Dự án triển khai hệ thống Nhà thông minh cục bộ (**Local-first Smart Home**) với độ trễ siêu thấp, bảo mật quyền riêng tư tối đa và khả năng hoạt động độc lập ngay cả khi mất kết nối Internet quốc tế.
+Hệ thống Nhà thông minh cục bộ (**Local-first Smart Home**) tích hợp **Trí tuệ nhân tạo Nhận diện khuôn mặt (CompreFace + Double-Take)** và **Cơ sở dữ liệu đám mây Supabase (PostgreSQL & Object Storage)**.
+
+Hệ thống đảm bảo:
+- **Tốc độ siêu nhanh & bảo mật nội bộ**: Xử lý nhận diện khuôn mặt và điều khiển rơ-le khóa cửa 100% tại máy chủ cục bộ trong mạng LAN.
+- **Đồng bộ sự kiện ra vào & cảnh báo lên Supabase**: Lưu trữ lịch sử ra vào số, ảnh chụp người lạ đột nhập lên Supabase Storage.
+- **Tương tác 2 chiều qua Telegram Bot**: Xem ảnh camera tức thì, bấm nút mở khóa từ xa trực tiếp trên tin nhắn.
 
 ---
 
 ## 📑 Mục lục
-1. [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
-2. [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
-3. [Sơ đồ đấu nối phần cứng ESP32](#-sơ-đồ-đấu-nối-phần-cứng-esp32)
-4. [Hướng dẫn cài đặt hạ tầng Docker](#-hướng-dẫn-cài-đặt-hạ-tầng-docker)
-5. [Nạp Firmware cho các Node ESPHome](#-nạp-firmware-cho-các-node-esphome)
-6. [Cấu hình Home Assistant & Dashboard UI](#-cấu-hình-home-assistant--dashboard-ui)
-7. [Triển khai Bot An ninh Telegram](#-triển-khai-bot-an-ninh-telegram)
-8. [Quản lý mã nguồn với Git & GitHub](#-quản-lý-mã-nguồn-với-git--github)
+1. [Kiến trúc hệ thống toàn diện](#-kiến-trúc-hệ-thống-toàn-diện)
+2. [Cấu trúc thư mục dự án](#-cấu-trúc-thư-mục-dự-án)
+3. [Cơ sở dữ liệu Supabase](#-cơ-sở-dữ-liệu-supabase)
+4. [Sơ đồ chân phần cứng ESP32 & ESP32-CAM](#-sơ-đồ-chân-phần-cứng-esp32--esp32-cam)
+5. [Cài đặt hạ tầng Docker](#-cài-đặt-hạ-tầng-docker)
+6. [Cấu hình AI Nhận diện khuôn mặt (CompreFace & Double-Take)](#-cấu-hình-ai-nhận-diện-khuôn-mặt)
+7. [Nạp Firmware cho các Node ESPHome](#-nạp-firmware-cho-các-node-esphome)
+8. [Bot Telegram & Mở khóa từ xa](#-bot-telegram--mở-khóa-từ-xa)
+9. [Quản lý mã nguồn với Git & GitHub](#-quản-lý-mã-nguồn-với-git--github)
 
 ---
 
-## 🏗 Kiến trúc hệ thống
+## 🏗 Kiến trúc hệ thống toàn diện
 
 ```text
-       +-------------------------------------------------------------+
-       |                     NGƯỜI DÙNG / APP                        |
-       |     Home Assistant App / Kiosk Lovelace / Telegram Bot     |
-       +------------------------------+------------------------------+
-                                      |
-                     [HTTP :8123]     |    [Telegram API / Polling]
-                                      v
-       +-------------------------------------------------------------+
-       |               CORE SERVER (Docker Containers)               |
-       |                                                             |
-       |  +------------------+             +----------------------+  |
-       |  |  Home Assistant  |<----------->|     Node-RED Flow    |  |
-       |  |     (Core Hub)   |  WebSocket  |  (Advanced Automate) |  |
-       |  +---------+--------+             +-----------+----------+  |
-       |            |                                  |             |
-       |            +---------------+  +---------------+             |
-       |                            |  |                             |
-       |                            v  v                             |
-       |                  +--------------------+                     |
-       |                  |   Mosquitto MQTT   |                     |
-       |                  |    (Local Broker)  |                     |
-       |                  +----+----------+----+                     |
-       |                       |          |                          |
-       +-----------------------|----------|--------------------------+
-                               |          |
-                   [MQTT / IP] |          | [Zigbee / Coordinator]
-                               |          v
-                               |   +-------------------+
-                               |   |    Zigbee2MQTT    |
-                               |   +---------+---------+
-                               |             | (Zigbee 3.0 Mesh)
-                               |             v
-                               |     +----------------+
-                               |     | Cảm biến Zigbee|
-                               |     +----------------+
-                               v
-       +-------------------------------------------------------------+
-       |               HARDWARE NODES (ESPHome on ESP32)             |
-       |                                                             |
-       |  [Node 1: Relay Phòng khách]     [Node 2: Cảm biến Phòng ngủ]|
-       |  - 4 Rơ-le điều khiển đèn/quạt    - Cảm biến nhiệt ẩm DHT22   |
-       |  - 4 Công tắc âm tường vật lý    - Radar vi sóng HLK-LD2410  |
-       +-------------------------------------------------------------+
+                  +----------------------------------------------+
+                  |         NGƯỜI DÙNG & QUẢN TRỊ VIÊN           |
+                  |   Lovelace Kiosk / Telegram Bot / Web Supabase|
+                  +-----------------------+----------------------+
+                                          |
+                [HTTP :8123]              |          [Telegram Bot API]
+                                          v
++-----------------------------------------------------------------------------------+
+|                           MÁY CHỦ CỤC BỘ (LOCAL SERVER)                           |
+|                                                                                   |
+|  +------------------+         +---------------------+      +-------------------+  |
+|  |  Home Assistant  |<------->|    Mosquitto MQTT   |<---->|  Double-Take Hub  |  |
+|  |    (Core Hub)    | WebSocket|   (Local Message)   |      | (Face Aggregator) |  |
+|  +--------+---------+         +----------+----------+      +---------+---------+  |
+|           |                              |                           |            |
+|           |                              |                           v            |
+|           |                              |                 +-------------------+  |
+|           |                              |                 |  CompreFace AI    |  |
+|           |                              |                 | (Deep Neural Net) |  |
+|           |                              |                 +-------------------+  |
+|           v                              v                                        |
+|  +------------------+                    |                                        |
+|  |  Node-RED Flow   |                    |                                        |
+|  +------------------+                    |                                        |
++-----------+------------------------------+----------------------------------------+
+            |                              |
+            | (Sync Events & Snapshots)    | (Wi-Fi / ESPHome Native API)
+            v                              v
++-----------------------+      +----------------------------------------------------+
+|  SUPABASE CLOUD DB    |      |                CÁC PHÂN HỆ PHẦN CỨNG               |
+| - Postgres Tables:    |      |                                                    |
+|   access_logs         |      |  1. Chuông cửa AI (ESP32-CAM):                     |
+|   security_alerts     |      |     - Camera OV2640 MJPEG Stream                   |
+|   family_members      |      |     - Đèn Flash chiếu sáng ban đêm & Nút chuông    |
+|   sensor_telemetry    |      |                                                    |
+| - Storage Bucket:     |      |  2. Khối Rơ-le & Khóa từ (ESP32 Livingroom):       |
+|   security-snapshots  |      |     - Khóa chốt điện từ Drop-Bolt/Magnetic         |
++-----------------------+      |     - 4 Kênh rơ-le đèn, quạt & 4 công tắc âm tường |
+                               |     - Cảm biến má từ phát hiện đóng/mở cửa         |
+                               |                                                    |
+                               |  3. Khối Cảm biến & Radar (ESP32 Bedroom):         |
+                               |     - Cảm biến nhiệt ẩm DHT22                      |
+                               |     - Radar vi sóng mmWave 24GHz HLK-LD2410        |
+                               +----------------------------------------------------+
 ```
 
 ---
 
-## 📂 Cấu trúc thư mục
+## 📂 Cấu trúc thư mục dự án
 
 ```text
 SmartHome/
-├── docker-compose.yml                  # Khởi chạy HA, MQTT, Z2M, Node-RED, ESPHome
-├── .env.example                        # Mẫu biến môi trường
-├── .gitignore                          # Cấu hình bỏ qua file nhạy cảm và cache
+├── docker-compose.yml                      # Triển khai HA, MQTT, Z2M, Node-RED, ESPHome, CompreFace, Double-Take
+├── .env.example                            # Mẫu biến môi trường (Telegram, Supabase, Token)
+├── .gitignore                              # Chống lộ secret, db cache và credential
+├── README.md                               # Hướng dẫn kỹ thuật toàn diện
+├── supabase/
+│   └── schema.sql                          # DDL khởi tạo toàn bộ Table, Policy RLS, Storage Bucket
+├── double-take_data/
+│   └── config.yml                          # Cấu hình đối soát nhận diện camera với CompreFace
 ├── ha_config/
-│   ├── configuration.yaml              # Cấu hình lõi Home Assistant & MQTT
-│   ├── automations.yaml                # Các kịch bản tự động hóa (Ánh sáng, An ninh)
-│   ├── ui-lovelace.yaml                # Dashboard giao diện Kiosk UI hiện đại
-│   ├── scripts.yaml                    # Các script mở rộng của HA
-│   └── scenes.yaml                     # Ngữ cảnh chiếu sáng
+│   ├── configuration.yaml                  # Cấu hình Camera, Lock template, MQTT sensor
+│   ├── automations.yaml                    # Tự động mở cửa khi khớp mặt, cảnh báo người lạ
+│   ├── ui-lovelace.yaml                    # Dashboard Kiosk: Live Camera, Khóa cửa, Biểu đồ 24h
+│   ├── scripts.yaml
+│   └── scenes.yaml
 ├── esphome_nodes/
-│   ├── esp32_livingroom_relay.yaml     # Node ESP32 4 rơ-le & 4 công tắc cơ
-│   └── esp32_bedroom_sensor.yaml       # Node ESP32 DHT22 & Radar mmWave LD2410
-├── mosquitto/
-│   └── config/
-│       └── mosquitto.conf              # Cấu hình Mosquitto MQTT Broker (port 1883, 9001)
-├── zigbee2mqtt/
-│   └── data/
-│       └── configuration.yaml.example  # Cấu hình mẫu kết nối Zigbee USB Dongle
+│   ├── esp32_cam_doorbell.yaml             # Firmware ESP32-CAM chuông cửa & rơ-le khóa
+│   ├── esp32_livingroom_relay.yaml         # Firmware ESP32 4 rơ-le + Khóa từ + Cảm biến má cửa
+│   └── esp32_bedroom_sensor.yaml           # Firmware ESP32 DHT22 + Radar mmWave LD2410
 ├── custom_scripts/
-│   ├── telegram_alert_bot.py           # Script cảnh báo an ninh & điều khiển qua Telegram
-│   └── requirements.txt                # Thư viện Python hỗ trợ bot
-└── README.md                           # Tài liệu kỹ thuật hoàn chỉnh
+│   ├── telegram_alert_bot.py               # Bot cảnh báo người lạ kèm ảnh & nút bấm mở cửa
+│   ├── supabase_client.py                  # Module đồng bộ dữ liệu & upload ảnh lên Supabase
+│   └── requirements.txt                    # Danh sách thư viện Python
+├── mosquitto/
+│   └── config/mosquitto.conf
+└── zigbee2mqtt/
+    └── data/configuration.yaml.example
 ```
 
 ---
 
-## 🔌 Sơ đồ đấu nối phần cứng ESP32
+## 🗄 Cơ sở dữ liệu Supabase
 
-### 1. Node Phòng khách: ESP32 + Rơ-le 4 kênh (`esp32_livingroom_relay.yaml`)
+File khởi tạo cơ sở dữ liệu nằm tại: [`supabase/schema.sql`](file:///d:/SmartHome/supabase/schema.sql)
 
-Module rơ-le kích mức Thấp (**Active LOW**) kèm dự phòng công tắc vật lý:
+### 1. Danh sách bảng dữ liệu
+1. **`family_members`**: Lưu danh sách thành viên gia đình, `face_id` (CompreFace), phòng được phép mở, nhiệt độ máy lạnh yêu thích (`preferred_temp`).
+2. **`devices`**: Danh mục toàn bộ mạch ESP32, rơ-le, radar, camera và trạng thái kết nối.
+3. **`access_logs`**: Nhật ký thời gian thực mỗi lần mở cửa/vào phòng (Tên người, Tỉ lệ khớp %, Phương thức mở, Link ảnh snapshot).
+4. **`security_alerts`**: Lưu vết cảnh báo người lạ lảng vảng trước cửa, đột nhập khi vắng nhà.
+5. **`sensor_telemetry`**: Lịch sử thông số nhiệt độ, độ ẩm và tọa độ radar mmWave.
 
-| Chân ESP32 | Chân Thiết bị ngoại vi | Thiết bị kết nối | Chức năng |
-| :--- | :--- | :--- | :--- |
-| **GPIO16** | Relay IN1 | Rơ-le Đèn chính trần | Điều khiển bật/tắt đèn trần |
-| **GPIO17** | Relay IN2 | Rơ-le Đèn hắt viền | Điều khiển đèn Ambient/viền |
-| **GPIO18** | Relay IN3 | Rơ-le Quạt trần | Điều khiển bật/tắt quạt |
-| **GPIO19** | Relay IN4 | Rơ-le Ổ cắm Aux | Điều khiển tải phụ trợ |
-| **GPIO32** | Công tắc cơ SW1 -> GND | Công tắc âm tường 1 | Đảo trạng thái Rơ-le 1 tức thì |
-| **GPIO33** | Công tắc cơ SW2 -> GND | Công tắc âm tường 2 | Đảo trạng thái Rơ-le 2 tức thì |
-| **GPIO25** | Công tắc cơ SW3 -> GND | Công tắc âm tường 3 | Đảo trạng thái Rơ-le 3 tức thì |
-| **GPIO26** | Công tắc cơ SW4 -> GND | Công tắc âm tường 4 | Đảo trạng thái Rơ-le 4 tức thì |
-| **GND** | GND Relay & Switches | Chung mass hệ thống | Nối đất |
-| **VIN / 5V** | VCC Relay Board | Nguồn cấp 5V DC | Cấp nguồn nuôi cuộn hút |
+### 2. Cấu hình Storage Bucket
+- Bucket name: `security-snapshots` (chế độ Public hoặc Authenticated).
+- Tự động lưu trữ hình ảnh người bấm chuông, người lạ hoặc ảnh thành viên xác thực lúc mở cửa.
 
-> **Lưu ý an toàn:** Khi đấu nối nguồn 220VAC vào tiếp điểm COM và NO của rơ-le, hãy ngắt atomat điện trước khi thao tác.
-
----
-
-### 2. Node Phòng ngủ: ESP32 + DHT22 + Radar HLK-LD2410 (`esp32_bedroom_sensor.yaml`)
-
-| Chân ESP32 | Chân Module | Ghi chú kỹ thuật |
-| :--- | :--- | :--- |
-| **GPIO4** | DHT22 Data (Chân 2) | Kèm điện trở kéo lên trở treo 4.7kΩ – 10kΩ lên 3.3V |
-| **3V3** | DHT22 VCC (Chân 1) | Nguồn nuôi cảm biến nhiệt ẩm |
-| **GND** | DHT22 GND (Chân 4) | Nối mass chung |
-| **GPIO16 (RX2)** | HLK-LD2410 TX | Nhận dữ liệu radar UART (Baud 256000) |
-| **GPIO17 (TX2)** | HLK-LD2410 RX | Gửi lệnh cấu hình khoảng cách / độ nhạy radar |
-| **5V (VIN)** | HLK-LD2410 VCC | Radar mmWave yêu cầu nguồn 5V ổn định (>150mA) |
-| **GND** | HLK-LD2410 GND | Nối mass chung |
+### 3. Cách khởi tạo trên Supabase
+1. Đăng nhập [supabase.com](https://supabase.com) -> Tạo Project mới.
+2. Mở mục **SQL Editor** -> Dán nội dung tệp [`supabase/schema.sql`](file:///d:/SmartHome/supabase/schema.sql) -> Bấm **Run**.
+3. Vào **Settings** -> **API**: Sao chép `Project URL` và `anon / service_role key` điền vào file `.env`.
 
 ---
 
-## 🚀 Hướng dẫn cài đặt hạ tầng Docker
+## 🔌 Sơ đồ chân phần cứng ESP32 & ESP32-CAM
 
-### Yêu cầu tiên quyết
-- Máy tính hoặc Raspberry Pi / Mini PC chạy Windows, Ubuntu Linux hoặc macOS đã cài **Docker** và **Docker Compose**.
-
-### Các bước khởi động
-1. Tạo file môi trường từ mẫu:
-   ```bash
-   cp .env.example .env
-   ```
-2. Khởi chạy toàn bộ hệ thống ở chế độ nền (detached):
-   ```bash
-   docker compose up -d
-   ```
-3. Kiểm tra trạng thái các container:
-   ```bash
-   docker compose ps
-   ```
-
-### Bảng cổng dịch vụ (Ports)
-| Dịch vụ | Cổng truy cập | Mô tả |
+### 1. Chuông cửa AI Camera: ESP32-CAM OV2640 (`esp32_cam_doorbell.yaml`)
+| Chân ESP32-CAM | Ngoại vi kết nối | Mô tả chức năng |
 | :--- | :--- | :--- |
-| **Home Assistant** | `http://localhost:8123` | Giao diện điều khiển trung tâm |
-| **ESPHome Dashboard** | `http://localhost:6052` | Biên dịch & nạp firmware qua web |
+| **GPIO0 / GPIO16 / ...** | Cảm biến camera OV2640 | Cụm chân camera cố định trên mạch |
+| **GPIO4** | Đèn Flash LED công suất cao | Bật sáng chiếu khuôn mặt ban đêm |
+| **GPIO13** | Nút bấm chuông cửa (kéo xuống GND) | Kích hoạt chuông cửa & lệnh quét mặt |
+| **GPIO12** | Rơ-le Khóa chốt điện (Pulse 5s) | Kích mở chốt khóa cửa trực tiếp |
+| **5V (2A)** | Nguồn DC 5V ổn định | Cấp nguồn cho bo mạch và camera |
+| **GND** | Mass chung | Nối đất |
+
+### 2. Rơ-le Phòng khách & Khóa từ Cửa chính (`esp32_livingroom_relay.yaml`)
+| Chân ESP32 | Thiết bị ngoại vi | Chức năng |
+| :--- | :--- | :--- |
+| **GPIO16** | Relay 1 (Đèn chính) | Bật/tắt đèn trần phòng khách |
+| **GPIO17** | Relay 2 (Đèn viền) | Bật đèn đón tiếp khi mở cửa |
+| **GPIO18** | Relay 3 (Quạt) | Bật quạt theo nhiệt độ DHT22 |
+| **GPIO19** | Relay 4 (Ổ cắm phụ) | Còi báo động an ninh |
+| **GPIO23** | Relay Khóa chốt điện từ | Kích mở khóa cửa (xung 5 giây) |
+| **GPIO27** | Cảm biến từ má cửa (Reed switch) | Báo trạng thái cửa Đang Đóng hay Mở |
+| **GPIO32, 33, 25, 26**| 4 Công tắc cơ âm tường | Điều khiển trực tiếp đèn/quạt tại chỗ |
+
+---
+
+## 🚀 Cài đặt hạ tầng Docker
+
+Khởi chạy đồng thời toàn bộ 9 container (HA, MQTT, Z2M, Node-RED, ESPHome, Double-Take, CompreFace UI, API, Core & Postgres):
+
+```bash
+# 1. Tạo file cấu hình môi trường
+cp .env.example .env
+
+# 2. Khởi chạy toàn bộ hệ thống
+docker compose up -d
+
+# 3. Kiểm tra danh sách container
+docker compose ps
+```
+
+### Bảng cổng dịch vụ
+| Dịch vụ | Cổng truy cập | Chức năng |
+| :--- | :--- | :--- |
+| **Home Assistant** | `http://localhost:8123` | Bảng điều khiển trung tâm & Lovelace Kiosk |
+| **CompreFace Web Admin** | `http://localhost:8000` | Huấn luyện & nạp ảnh khuôn mặt gia đình |
+| **Double-Take Console** | `http://localhost:3000` | Đối soát hình ảnh camera và xem log khớp mặt |
+| **ESPHome Web** | `http://localhost:6052` | Biên dịch & nạp firmware qua web/OTA |
 | **Node-RED** | `http://localhost:1880` | Thiết kế luồng tự động hóa trực quan |
-| **Zigbee2MQTT** | `http://localhost:8080` | Quản lý thiết bị mạng Zigbee |
-| **Mosquitto MQTT** | `1883` (TCP), `9001` (WS) | Trạm trung chuyển bản tin |
+| **Mosquitto MQTT** | `1883`, `9001` | Trạm trung chuyển tin nhắn |
 
 ---
 
-## ⚡ Nạp Firmware cho các Node ESPHome
+## 🧠 Cấu hình AI Nhận diện khuôn mặt
 
-### Cách 1: Nạp qua giao diện Web ESPHome (Khuyến nghị)
-1. Mở trình duyệt truy cập: `http://localhost:6052`
-2. Cắm mạch ESP32 vào máy chủ bằng cáp MicroUSB / Type-C.
-3. Chọn node tương ứng (`esp32-livingroom-relay` hoặc `esp32-bedroom-sensor`).
-4. Nhấn **Install** -> Chọn **Plug into this computer** hoặc tải file `.bin` nạp qua [web.esphome.io](https://web.esphome.io).
-5. Các lần cập nhật sau có thể thực hiện hoàn toàn qua mạng Wi-Fi (**OTA - Wirelessly**).
-
-### Cách 2: Nạp bằng dòng lệnh ESPHome CLI
-```bash
-# Biên dịch và nạp cho Node Relay
-esphome run esphome_nodes/esp32_livingroom_relay.yaml
-
-# Biên dịch và nạp cho Node Cảm biến
-esphome run esphome_nodes/esp32_bedroom_sensor.yaml
-```
+1. Truy cập giao diện quản trị CompreFace: `http://localhost:8000`.
+2. Tạo tài khoản Admin -> Bấm **Create Service** (chọn loại **Recognition**).
+3. Đặt tên (vd: `SmartHome_Face_Service`) -> Bấm sao chép **API Key**.
+4. Dán API key vào file [`double-take_data/config.yml`](file:///d:/SmartHome/double-take_data/config.yml) và file `.env`.
+5. Trong CompreFace, bấm vào **Subjects**:
+   - Thêm tên từng thành viên gia đình (vd: `NguyenVanA`, `TranThiB`).
+   - Tải lên 3 - 5 bức ảnh chụp rõ mặt ở các góc độ khác nhau.
+6. Hệ thống sẽ ngay lập tức đối soát khuôn mặt với luồng ảnh từ ESP32-CAM!
 
 ---
 
-## 🖥 Cấu hình Home Assistant & Dashboard UI
+## 🤖 Bot Telegram & Mở khóa từ xa
 
-1. Đăng nhập vào Home Assistant tại `http://localhost:8123`.
-2. Vào **Settings** -> **Devices & Services** -> Bấm **Add Integration**:
-   - Chọn **MQTT**: Nhập broker `mosquitto`, port `1883` (Anonymous hoặc user nếu có đặt).
-   - Chọn **ESPHome**: Nhập địa chỉ IP của từng mạch ESP32 để tự động khám phá toàn bộ các thực thể rơ-le và radar.
-3. Dashboard YAML đã được liên kết tại `ha_config/ui-lovelace.yaml`.
-   - Để kích hoạt chế độ Lovelace YAML, vào Home Assistant bấm nút **Menu 3 chấm** -> **Reload Lovelace Configuration**.
+File script: [`custom_scripts/telegram_alert_bot.py`](file:///d:/SmartHome/custom_scripts/telegram_alert_bot.py)
 
----
-
-## 🤖 Triển khai Bot An ninh Telegram
-
-Script `telegram_alert_bot.py` giúp gửi cảnh báo tức thì kèm nhiệt độ/độ ẩm khi phát hiện mục tiêu di chuyển trong chế độ bảo vệ (`Armed Away`).
-
-### 1. Cài đặt thư viện Python
+### Cài đặt và khởi chạy
 ```bash
-cd custom_scripts
-pip install -r requirements.txt
-```
-
-### 2. Cấu hình biến môi trường
-Mở file `.env` và điền:
-- `TELEGRAM_BOT_TOKEN`: Lấy từ `@BotFather` trên Telegram.
-- `TELEGRAM_CHAT_ID`: ID người dùng hoặc group nhận cảnh báo (lấy qua `@userinfobot`).
-- `HA_ACCESS_TOKEN`: Long-Lived Access Token tạo tại trang Profile cá nhân trong Home Assistant.
-
-### 3. Chạy Bot
-```bash
+pip install -r custom_scripts/requirements.txt
 python custom_scripts/telegram_alert_bot.py
 ```
 
-### 4. Danh sách lệnh điều khiển bot
-- `/status` : Xem báo cáo tổng quát nhiệt độ, độ ẩm, an ninh.
-- `/arm` : Bật chế độ cảnh báo xâm nhập.
-- `/disarm` : Tắt chế độ bảo vệ.
-- `/lights_on` : Bật đèn phòng khách khẩn cấp.
-- `/lights_off` : Tắt đèn phòng khách.
-- `/fan_toggle` : Đảo trạng thái quạt trần.
+### Tính năng tương tác:
+* **Cảnh báo người lạ**: Khi camera phát hiện người lạ lảng vảng, Bot gửi ngay **ảnh chụp thực tế** kèm các nút bấm tương tác:
+  - `[🔓 Mở cửa (5s)]`: Bấm để mở chốt cửa từ xa ngay trên chat.
+  - `[🚨 Hú còi báo động]`: Bấm để kích hoạt còi cảnh báo đột nhập.
+  - `[📸 Chụp lại ảnh]`: Chụp ảnh mới nhất gửi về máy chủ.
+* **Lệnh điều khiển**:
+  - `/unlock` : Mở chốt khóa cửa chính tức thì.
+  - `/cam` : Yêu cầu chụp và gửi ảnh snapshot từ camera cửa.
+  - `/who` : Xem người nhận diện gần nhất và % tin cậy.
+  - `/status` : Xem nhiệt độ, độ ẩm và trạng thái đồng bộ Supabase.
 
 ---
 
 ## 📦 Quản lý mã nguồn với Git & GitHub
 
-Hệ thống đã được thiết kế sẵn sàng đưa lên GitHub:
-
 ```bash
-# Khởi tạo repository Git
-git init
-
-# Thêm tất cả file
 git add .
-
-# Tạo commit đầu tiên
-git commit -m "feat: complete local-first smart home system architecture"
-
-# Liên kết với repository GitHub của bạn (thay thế URL tương ứng)
-git branch -M main
-git remote add origin https://github.com/<USERNAME>/<REPO_NAME>.git
-
-# Đẩy mã nguồn lên GitHub
+git commit -m "feat: integrate facial recognition with CompreFace, Double-Take, ESP32-CAM and Supabase DB"
 git push -u origin main
 ```
-
----
-*Tài liệu được xây dựng chuẩn hoá theo kế hoạch thực thi kỹ thuật Smart Home AI Agent.*
-

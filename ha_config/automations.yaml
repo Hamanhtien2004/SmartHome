@@ -1,11 +1,99 @@
 # ==============================================================================
-# Home Assistant Core Automations
+# Home Assistant Core Automations & Facial Recognition Access Control
 # ==============================================================================
 
-# 1. Tự động bật đèn khi phát hiện có người (LD2410 mmWave presence)
+# ------------------------------------------------------------------------------
+# 1. NHẬN DIỆN KHUÔN MẶT THÀNH CÔNG -> MỞ KHÓA CỬA & TẮT BÁO ĐỘNG
+# ------------------------------------------------------------------------------
+- id: "automation_face_recognition_unlock_door"
+  alias: "Access Control - Mở khóa cửa khi nhận diện khuôn mặt người nhà"
+  description: "Tự động kích hoạt mở khóa điện từ khi Double-Take khớp khuôn mặt thành viên gia đình >= 85%"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.double_take_match_confidence
+      above: 84.9
+  condition:
+    - condition: state
+      entity_id: input_boolean.face_recognition_auto_unlock
+      state: "on"
+    - condition: template
+      value_template: "{{ states('sensor.double_take_latest_person') not in ['unknown', 'None', ''] }}"
+  action:
+    # 1. Mở chốt khóa cửa trong 5 giây (Rơ-le ESP32)
+    - service: lock.unlock
+      target:
+        entity_id: lock.front_door
+    # 2. Tự động vô hiệu hóa chế độ báo động Armed Away
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.security_armed_away
+    # 3. Bật đèn chiếu sáng đón tiếp sảnh vào ban đêm
+    - service: switch.turn_on
+      target:
+        entity_id: switch.living_room_ambient_light
+    # 4. Gửi thông báo cục bộ và kích hoạt sự kiện Supabase Log
+    - service: persistent_notification.create
+      data:
+        title: "🔓 CỬA CHÍNH ĐÃ MỞ (Face ID)"
+        message: "Chào mừng **{{ states('sensor.double_take_latest_person') }}** về nhà lúc {{ now().strftime('%H:%M:%S') }} (Độ khớp: {{ states('sensor.double_take_match_confidence') }}%)."
+        notification_id: "door_access_log"
+    # Phát sự kiện cho Telegram Bot & Supabase
+    - event: smart_home_access_event
+      event_data:
+        person: "{{ states('sensor.double_take_latest_person') }}"
+        confidence: "{{ states('sensor.double_take_match_confidence') }}"
+        access_granted: true
+        location: "front_door"
+        method: "face_recognition"
+  mode: single
+
+# ------------------------------------------------------------------------------
+# 2. PHÁT HIỆN NGƯỜI LẠ TRƯỚC CỬA (UNKNOWN FACE / STRANGER ALERT)
+# ------------------------------------------------------------------------------
+- id: "automation_face_recognition_stranger_alert"
+  alias: "Security - Phát hiện người lạ trước cửa"
+  description: "Cảnh báo khi phát hiện người lạ lảng vảng trước camera cửa chính"
+  trigger:
+    - platform: state
+      entity_id: sensor.double_take_latest_person
+      to: "unknown"
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.double_take_match_confidence') | float(0) < 50.0 }}"
+  action:
+    - event: smart_home_stranger_detected
+      event_data:
+        person: "Người lạ (Stranger)"
+        location: "Khu vực Cửa chính (Camera Doorbell)"
+        timestamp: "{{ now().isoformat() }}"
+        alert_level: "HIGH"
+  mode: single
+
+# ------------------------------------------------------------------------------
+# 3. SỰ KIỆN NHẤN CHUÔNG CỬA (DOORBELL PRESSED)
+# ------------------------------------------------------------------------------
+- id: "automation_doorbell_pressed_event"
+  alias: "Doorbell - Có khách bấm chuông cửa"
+  trigger:
+    - platform: event
+      event_type: esphome.doorbell_pressed
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "🔔 CHUÔNG CỬA ĐANG REO!"
+        message: "Có người bấm chuông tại cửa chính lúc {{ now().strftime('%H:%M:%S') }}."
+        notification_id: "doorbell_alert"
+    - event: smart_home_doorbell_ring
+      event_data:
+        source: "front_door"
+        timestamp: "{{ now().isoformat() }}"
+  mode: single
+
+# ------------------------------------------------------------------------------
+# 4. TỰ ĐỘNG BẬT ĐÈN THEO RADAR MMWAVE (LD2410)
+# ------------------------------------------------------------------------------
 - id: "automation_livingroom_light_auto_on"
   alias: "Smart Light - Bật đèn khi có người hiện diện"
-  description: "Bật đèn phòng khách khi cảm biến mmWave LD2410 phát hiện có người"
   trigger:
     - platform: state
       entity_id: binary_sensor.bedroom_mmwave_presence
@@ -14,20 +102,17 @@
     - condition: state
       entity_id: switch.living_room_main_light
       state: "off"
-    # Tùy chọn: chỉ bật vào buổi tối hoặc khi trời tối (sau hoàng hôn đến trước bình minh)
-    # - condition: sun
-    #   after: sunset
-    #   before: sunrise
   action:
     - service: switch.turn_on
       target:
         entity_id: switch.living_room_main_light
   mode: single
 
-# 2. Tự động tắt đèn khi không còn người trong phòng sau 5 phút
+# ------------------------------------------------------------------------------
+# 5. TỰ ĐỘNG TẮT ĐÈN KHI KHÔNG CÒN NGƯỜI
+# ------------------------------------------------------------------------------
 - id: "automation_livingroom_light_auto_off"
   alias: "Smart Light - Tắt đèn khi không có người"
-  description: "Tắt đèn phòng khách sau khi không còn hiện diện trong 5 phút"
   trigger:
     - platform: state
       entity_id: binary_sensor.bedroom_mmwave_presence
@@ -44,10 +129,11 @@
         entity_id: switch.living_room_main_light
   mode: restart
 
-# 3. Cảnh báo an ninh: Phát hiện chuyển động khi đang kích hoạt Armed Away
+# ------------------------------------------------------------------------------
+# 6. CẢNH BÁO CHUYỂN ĐỘNG TRONG CHẾ ĐỘ ARMED AWAY
+# ------------------------------------------------------------------------------
 - id: "automation_security_motion_alert"
   alias: "Security - Cảnh báo đột nhập khi vắng nhà"
-  description: "Gửi cảnh báo và kích hoạt bot khi có chuyển động trong chế độ Armed Away"
   trigger:
     - platform: state
       entity_id: binary_sensor.bedroom_mmwave_motion
@@ -57,13 +143,11 @@
       entity_id: input_boolean.security_armed_away
       state: "on"
   action:
-    # Gửi thông báo cục bộ qua persistent_notification
     - service: persistent_notification.create
       data:
         title: "⚠️ CẢNH BÁO ĐỘT NHẬP!"
         message: "Phát hiện chuyển động bất thường trong nhà lúc {{ now().strftime('%H:%M:%S %d/%m/%Y') }}!"
         notification_id: "security_alert"
-    # Phát sự kiện để Telegram Bot hoặc Webhook xử lý
     - event: smart_home_security_alert
       event_data:
         sensor: "bedroom_mmwave_motion"
@@ -72,10 +156,11 @@
         alert_level: "HIGH"
   mode: single
 
-# 4. Tự động bật quạt khi nhiệt độ phòng vượt ngưỡng (DHT22)
+# ------------------------------------------------------------------------------
+# 7. ĐIỀU KHIỂN QUẠT THEO NHIỆT ĐỘ PHÒNG (DHT22)
+# ------------------------------------------------------------------------------
 - id: "automation_climate_fan_temp_high"
   alias: "Climate - Tự động bật quạt khi nhiệt độ cao"
-  description: "Bật quạt khi nhiệt độ đo từ DHT22 > 30°C"
   trigger:
     - platform: numeric_state
       entity_id: sensor.bedroom_temperature
@@ -90,10 +175,8 @@
         entity_id: switch.living_room_ceiling_fan
   mode: single
 
-# 5. Tự động tắt quạt khi nhiệt độ hạ nhiệt < 27°C
 - id: "automation_climate_fan_temp_cool"
   alias: "Climate - Tự động tắt quạt khi phòng mát"
-  description: "Tắt quạt khi nhiệt độ đo từ DHT22 < 27°C"
   trigger:
     - platform: numeric_state
       entity_id: sensor.bedroom_temperature
@@ -107,4 +190,3 @@
       target:
         entity_id: switch.living_room_ceiling_fan
   mode: single
-

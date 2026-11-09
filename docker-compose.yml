@@ -50,9 +50,6 @@ services:
       - /run/udev:/run/udev:ro
     ports:
       - "8080:8080" # Web frontend
-    # Note: On Linux host with USB Zigbee Dongle (e.g. Sonoff ZBDongle-E/P), uncomment the device mapping below:
-    # devices:
-    #   - /dev/ttyUSB0:/dev/ttyUSB0
     depends_on:
       - mosquitto
     networks:
@@ -95,7 +92,78 @@ services:
     networks:
       - smarthome_net
 
+  # ==========================================
+  # AI Face Recognition Hub: Double-Take
+  # Connects Cameras + CompreFace + MQTT + HA
+  # ==========================================
+  double-take:
+    container_name: double-take
+    image: jakowenko/double-take:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE:-Asia/Ho_Chi_Minh}
+      - PORT=3000
+    volumes:
+      - ./double-take_data:/.storage
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mosquitto
+      - compreface-api
+    networks:
+      - smarthome_net
+
+  # ==========================================
+  # AI Facial Recognition Engine: CompreFace (Exadel)
+  # Local-first Deep Learning Neural Face Matching
+  # ==========================================
+  compreface-fe:
+    container_name: compreface-fe
+    image: exadel/compreface-fe:latest
+    restart: unless-stopped
+    ports:
+      - "8000:80" # CompreFace Web Admin Console
+    depends_on:
+      - compreface-api
+    networks:
+      - smarthome_net
+
+  compreface-api:
+    container_name: compreface-api
+    image: exadel/compreface-api:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${COMPREFACE_DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${COMPREFACE_DB_PASS:-postgres}
+      - POSTGRES_URL=jdbc:postgresql://compreface-postgres-db:5432/compreface
+      - SPRING_PROFILES_ACTIVE=dev
+      - ENABLE_CORS=true
+    depends_on:
+      - compreface-postgres-db
+      - compreface-core
+    networks:
+      - smarthome_net
+
+  compreface-core:
+    container_name: compreface-core
+    image: exadel/compreface-core:latest
+    restart: unless-stopped
+    networks:
+      - smarthome_net
+
+  compreface-postgres-db:
+    container_name: compreface-postgres-db
+    image: postgres:11.5-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${COMPREFACE_DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${COMPREFACE_DB_PASS:-postgres}
+      - POSTGRES_DB=compreface
+    volumes:
+      - ./compreface_data/postgres:/var/lib/postgresql/data
+    networks:
+      - smarthome_net
+
 networks:
   smarthome_net:
     driver: bridge
-

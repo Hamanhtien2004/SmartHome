@@ -1,0 +1,128 @@
+substitutions:
+  node_name: esp32-cam-doorbell
+  friendly_name: "Front Door AI Camera & Doorbell"
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  comment: "ESP32-CAM Video Streamer, Face Recognition Node & Doorbell"
+
+# Model: AI-Thinker ESP32-CAM (OV2640 sensor)
+esp32:
+  board: esp32cam
+  framework:
+    type: arduino
+
+# Home Assistant Native API
+api:
+  encryption:
+    key: "ReplaceWithYourGenerated32ByteBase64Key="
+
+# OTA Updates
+ota:
+  platform: esphome
+  password: "admin_ota_password"
+
+# Wi-Fi Configuration
+wifi:
+  ssid: "Your_WiFi_SSID"
+  password: "Your_WiFi_Password"
+
+  ap:
+    ssid: "ESP32-CAM-Fallback"
+    password: "fallbackpassword123"
+
+captive_portal:
+
+logger:
+  level: INFO
+
+# ==============================================================================
+# ESP32-CAM OV2640 PINOUT CONFIGURATION (AI-Thinker Board)
+# ==============================================================================
+esp32_camera:
+  name: "Front Door Camera"
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+
+  # Resolution and Quality optimized for Face Recognition
+  resolution: 800x600 # SVGA for optimal face feature extraction
+  jpeg_quality: 10     # High quality (10-63, lower is better)
+  max_framerate: 10fps
+  vertical_flip: true
+  horizontal_mirror: false
+
+# Local Web Server providing MJPEG Stream & Still Snapshot (/saved_photo.jpg)
+esp32_camera_web_server:
+  - port: 8080
+    mode: stream
+  - port: 8081
+    mode: snapshot
+
+# ==============================================================================
+# HIGH-POWER FLASH LED (GPIO4 on AI-Thinker)
+# Used for night-time face recognition illumination
+# ==============================================================================
+output:
+  - platform: ledc
+    pin: GPIO4
+    id: gpio_flash_led
+
+light:
+  - platform: monochromatic
+    output: gpio_flash_led
+    name: "Front Door Camera Flash Illuminator"
+    id: cam_flash
+
+# Built-in small red indicator LED (GPIO33, inverted)
+status_led:
+  pin:
+    number: GPIO33
+    inverted: true
+
+# ==============================================================================
+# PHYSICAL DOORBELL BUTTON & RELAY ACCESS CONTROL
+# ==============================================================================
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Doorbell Push Button"
+    id: doorbell_btn
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - logger.log: "Doorbell button pressed! Triggering face recognition..."
+        - homeassistant.event:
+            event: esphome.doorbell_pressed
+            data:
+              source: "front_door"
+
+switch:
+  # Door Strike / Magnetic Lock Relay on GPIO12
+  - platform: gpio
+    pin: GPIO12
+    name: "Front Door Strike Lock"
+    id: door_lock_relay
+    icon: "mdi:lock"
+    # Auto-relock pulse after 5 seconds
+    on_turn_on:
+      - delay: 5s
+      - switch.turn_off: door_lock_relay
+
+  - platform: restart
+    name: "Doorbell Camera Restart"

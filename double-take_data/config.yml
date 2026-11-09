@@ -1,0 +1,26 @@
+# Double-Take Configuration
+# Bridge between Cameras, CompreFace and MQTT/Home Assistant
+
+mqtt:
+  host: mosquitto
+  port: 1883
+  topics:
+    # Double-Take will publish results to double-take/matches & double-take/cameras/...
+    matches: double-take/matches
+    cameras: double-take/cameras
+
+detectors:
+  compreface:
+    url: http://compreface-api:8080
+    key: "YOUR_COMPREFACE_RECOGNITION_API_KEY"
+    timeout: 15
+    det_prob_threshold: 0.8 # Face detection threshold
+    # Confidence threshold to match a known family member
+    confidence: 0.85
+
+cameras:
+  - name: front_door_camera
+    url: http://esp32-cam-doorbell:8081/saved_photo.jpg # ESP32-CAM snapshot endpoint
+    # Or RTSP stream: rtsp://...
+    snapshot:
+      interval: 0 # Process on trigger/event

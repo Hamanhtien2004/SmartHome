@@ -9,21 +9,38 @@ views:
   - title: "Tổng quan"
     path: overview
     icon: mdi:view-dashboard
-    type: custom:grid-layout # Tương thích chế độ lưới Kiosk
+    type: custom:grid-layout
     layout:
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
       grid-gap: 12px
     badges: []
     cards:
-      # Header Card: Trạng thái hệ thống & Giờ
+      # Header Card
       - type: markdown
         title: "🏠 TRUNG TÂM ĐIỀU KHIỂN NHÀ THÔNG MINH"
         content: >
-          Hệ thống vận hành **Local-First** qua Docker, Mosquitto MQTT & ESPHome.
+          Hệ thống vận hành **Local-First** với nhận diện khuôn mặt CompreFace & đồng bộ Supabase.
           
           Thời gian máy chủ: **{{ now().strftime('%H:%M - %A, %d/%m/%Y') }}**
 
-      # Card 1: Chế độ an ninh & Báo động
+      # Card 1: Khóa cửa & Trạng thái Nhận diện khuôn mặt
+      - type: entities
+        title: "🚪 Kiểm soát Cửa & Nhận diện Face ID"
+        icon: mdi:door-closed-lock
+        show_header_toggle: false
+        entities:
+          - entity: lock.front_door
+            name: "Khóa chốt điện Cửa chính"
+          - entity: binary_sensor.front_door_contact_sensor
+            name: "Cảm biến từ trạng thái cửa"
+          - entity: sensor.double_take_latest_person
+            name: "Khuôn mặt nhận diện gần nhất"
+          - entity: sensor.double_take_match_confidence
+            name: "Độ tin cậy nhận diện (%)"
+          - entity: input_boolean.face_recognition_auto_unlock
+            name: "Tự động mở khi nhận diện đúng"
+
+      # Card 2: Chế độ an ninh & Báo động
       - type: entities
         title: "🛡️ Trạng thái An ninh"
         icon: mdi:security
@@ -42,39 +59,33 @@ views:
             name: "Chuyển động tức thì"
             icon: mdi:run-fast
 
-      # Card 2: Cụm điều khiển Rơ-le Đèn & Quạt (Living Room Relays)
+      # Card 3: Camera giám sát cửa chính (Live Stream)
+      - type: picture-entity
+        title: "📹 Camera Chuông cửa Cửa chính"
+        entity: camera.front_door_ai_camera
+        camera_view: live
+        show_name: true
+        show_state: true
+        aspect_ratio: "16:9"
+
+      # Card 4: Điều khiển Rơ-le Đèn & Quạt (Living Room Relays)
       - type: entities
-        title: "💡 Điều khiển Thiết bị Phòng Khách"
+        title: "💡 Thiết bị Phòng Khách"
         icon: mdi:ceiling-light
         show_header_toggle: true
         entities:
           - entity: switch.living_room_main_light
             name: "Đèn chính trần"
-            icon: mdi:lightbulb-group
           - entity: switch.living_room_ambient_light
             name: "Đèn hắt viền / Ambient"
-            icon: mdi:wall-sconce-flat
           - entity: switch.living_room_ceiling_fan
             name: "Quạt trần phòng khách"
-            icon: mdi:fan
           - entity: switch.living_room_aux_socket
-            name: "Ổ cắm phụ trợ (Aux)"
-            icon: mdi:power-socket-eu
+            name: "Ổ cắm phụ trợ (Còi báo động)"
 
-      # Card 3: Camera giám sát an ninh (Kèm chế độ Live stream)
-      - type: picture-entity
-        title: "📹 Camera An ninh Cửa chính"
-        entity: camera.front_door_stream
-        camera_view: live
-        show_name: true
-        show_state: true
-        aspect_ratio: "16:9"
-        # Dự phòng hiển thị hình ảnh nếu camera chưa kết nối
-        image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=800&q=80"
-
-      # Card 4: Biểu đồ lịch sử Nhiệt độ & Độ ẩm (DHT22)
+      # Card 5: Biểu đồ lịch sử Nhiệt độ & Độ ẩm (DHT22)
       - type: history-graph
-        title: "📈 Biểu đồ Môi trường 24 Giờ (DHT22 Sensor)"
+        title: "📈 Biểu đồ Môi trường 24 Giờ (DHT22)"
         hours_to_show: 24
         refresh_interval: 30
         entities:
@@ -84,13 +95,54 @@ views:
             name: "Độ ẩm (%)"
 
   # ----------------------------------------------------------------------------
-  # VIEW 2: CẢM BIẾN MÔI TRƯỜNG & RADAR (CLIMATE & SENSOR VIEW)
+  # VIEW 2: KIỂM SOÁT RA VÀO & FACE ID (ACCESS CONTROL & LOGS)
+  # ----------------------------------------------------------------------------
+  - title: "Kiểm soát Ra vào"
+    path: access-control
+    icon: mdi:face-recognition
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: "MỞ KHÓA CỬA CHÍNH (5S)"
+            icon: mdi:lock-open-variant
+            tap_action:
+              action: call-service
+              service: lock.unlock
+              target:
+                entity_id: lock.front_door
+
+          - type: button
+            name: "KÍCH HOẠT BÁO VỆ (ARM)"
+            icon: mdi:shield-lock
+            tap_action:
+              action: call-service
+              service: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.security_armed_away
+
+      - type: picture-entity
+        title: "📷 Trực tiếp Cửa Ra Vào"
+        entity: camera.front_door_ai_camera
+        camera_view: live
+        aspect_ratio: "16:9"
+
+      - type: markdown
+        title: "👥 Danh sách Thành viên Gia đình Được Phép"
+        content: >
+          Các thành viên đã đăng ký Face ID trong **CompreFace**:
+          
+          - 👤 **Chủ hộ (Admin)**: Mọi quyền ra vào cửa chính và các phòng
+          - 👤 **Thành viên gia đình**: Quyền ra vào cửa chính và phòng khách
+          - 👤 **Khách quen (Guest)**: Mở khóa cửa chính khi bật Guest Mode
+
+  # ----------------------------------------------------------------------------
+  # VIEW 3: CẢM BIẾN MÔI TRƯỜNG & RADAR (CLIMATE & SENSOR VIEW)
   # ----------------------------------------------------------------------------
   - title: "Cảm biến & Radar"
     path: sensors
     icon: mdi:radar
     cards:
-      # Gauge Card: Nhiệt độ hiện tại
       - type: gauge
         entity: sensor.bedroom_temperature
         name: "Nhiệt độ phòng ngủ"
@@ -102,7 +154,6 @@ views:
           yellow: 28
           red: 34
 
-      # Gauge Card: Độ ẩm hiện tại
       - type: gauge
         entity: sensor.bedroom_humidity
         name: "Độ ẩm phòng ngủ"
@@ -114,7 +165,6 @@ views:
           yellow: 65
           red: 80
 
-      # Thông số Radar HLK-LD2410 mmWave chi tiết
       - type: entities
         title: "📡 Chi tiết Radar mmWave HLK-LD2410"
         entities:
@@ -130,8 +180,3 @@ views:
             name: "Năng lượng chuyển động"
           - entity: sensor.bedroom_still_target_energy
             name: "Năng lượng mục tiêu tĩnh"
-          - entity: switch.bedroom_radar_engineering_mode
-            name: "Chế độ Radar Engineering"
-          - entity: switch.bedroom_radar_bluetooth_configuration
-            name: "Bật Bluetooth cấu hình Radar"
-

@@ -25,9 +25,19 @@ http:
     - 172.16.0.0/12
     - 192.168.0.0/16
 
-# MQTT Integration
-# Note: Modern Home Assistant primarily configures MQTT via UI Integration.
-# Manual YAML configuration below declares local topics and helper entities.
+# ==============================================================================
+# CAMERAS (ESP32-CAM MJPEG Stream & Snapshot)
+# ==============================================================================
+camera:
+  - platform: mjpeg
+    name: "Front Door AI Camera"
+    mjpeg_url: "http://esp32-cam-doorbell:8080"
+    still_image_url: "http://esp32-cam-doorbell:8081/saved_photo.jpg"
+    verify_ssl: false
+
+# ==============================================================================
+# MQTT SENSORS & DOUBLE-TAKE FACE RECOGNITION INTEGRATION
+# ==============================================================================
 mqtt:
   sensor:
     - name: "Living Room Temp (MQTT)"
@@ -38,6 +48,20 @@ mqtt:
       state_topic: "esphome/bedroom_sensor/sensor/dht22_humidity/state"
       unit_of_measurement: "%"
       device_class: "humidity"
+
+    # Double-Take Recognized Person
+    - name: "Double Take Latest Person"
+      state_topic: "double-take/matches"
+      value_template: "{{ value_json.name | default('unknown') }}"
+      icon: "mdi:account-badge"
+
+    # Double-Take Match Confidence (%)
+    - name: "Double Take Match Confidence"
+      state_topic: "double-take/matches"
+      value_template: "{{ (value_json.match.confidence * 100) | round(1) if value_json.match is defined else 0 }}"
+      unit_of_measurement: "%"
+      icon: "mdi:percent"
+
   binary_sensor:
     - name: "Bedroom mmWave Target Movement"
       state_topic: "esphome/bedroom_sensor/binary_sensor/ld2410_has_moving_target/state"
@@ -50,7 +74,33 @@ mqtt:
       payload_off: "OFF"
       device_class: "occupancy"
 
-# Input Helpers for Security System
+    # Double-Take Face Detected Flag
+    - name: "Double Take Person Recognized"
+      state_topic: "double-take/matches"
+      payload_on: "match"
+      payload_off: "unknown"
+      value_template: "{{ 'match' if value_json.match.confidence | default(0) >= 0.85 else 'unknown' }}"
+      device_class: "presence"
+
+# ==============================================================================
+# TEMPLATE LOCK: FRONT DOOR & BEDROOM LOCK
+# ==============================================================================
+lock:
+  - platform: template
+    name: "Front Door Lock"
+    value_template: "{{ is_state('binary_sensor.front_door_contact_sensor', 'off') and is_state('switch.front_door_lock_electronic_relay', 'off') }}"
+    lock:
+      service: switch.turn_off
+      target:
+        entity_id: switch.front_door_lock_electronic_relay
+    unlock:
+      service: switch.turn_on
+      target:
+        entity_id: switch.front_door_lock_electronic_relay
+
+# ==============================================================================
+# INPUT HELPERS FOR SECURITY & ACCESS CONTROL
+# ==============================================================================
 input_boolean:
   security_armed_away:
     name: "Hệ thống An ninh (Armed Away)"
@@ -58,11 +108,18 @@ input_boolean:
     initial: false
   vacation_mode:
     name: "Chế độ Vắng nhà (Vacation Mode)"
-    icon: mdi:airplane
+    icon: mdi:home-export-outline
+    initial: false
+  face_recognition_auto_unlock:
+    name: "Tự động mở khóa khi nhận diện khuôn mặt"
+    icon: mdi:face-recognition
+    initial: true
+  guest_mode:
+    name: "Chế độ Khách (Guest Mode)"
+    icon: mdi:account-group
     initial: false
 
 # Includes
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
-
