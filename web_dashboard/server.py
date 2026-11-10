@@ -23,6 +23,13 @@ import urllib.parse
 import urllib.error
 import threading
 
+# Ensure root is in sys.path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from ai_agent.agent_core import SmartHomeAIAgent
+
 # Optional Supabase integration
 try:
     from supabase import create_client
@@ -96,6 +103,45 @@ CACHE_STATE = {
     },
     "recent_logs": []
 }
+
+def execute_agent_action(action_type: str, payload: dict):
+    """Callback for AI Agent to directly trigger physical actuators."""
+    if action_type == "relay":
+        target = payload.get("relay")
+        state = payload.get("state")
+        if target in CACHE_STATE["relays"]:
+            CACHE_STATE["relays"][target] = state
+            ha_entity_map = {
+                "main_light": "switch.living_room_main_light",
+                "ambient_light": "switch.living_room_ambient_light",
+                "ceiling_fan": "switch.living_room_ceiling_fan",
+                "aux_socket": "switch.living_room_aux_socket"
+            }
+            if target in ha_entity_map:
+                svc = "turn_on" if state else "turn_off"
+                ha_call(f"services/switch/{svc}", "POST", {"entity_id": ha_entity_map[target]})
+            publish_mqtt(f"esphome/livingroom_relay/switch/{target}/command", "ON" if state else "OFF")
+    elif action_type == "unlock":
+        CACHE_STATE["relays"]["door_strike_relay"] = True
+        CACHE_STATE["security"]["door_lock_engaged"] = False
+        ha_call("services/lock/unlock", "POST", {"entity_id": "lock.front_door"})
+        publish_mqtt("esphome/livingroom_relay/switch/front_door_lock_electronic_relay/command", "ON")
+        def auto_relock():
+            time.sleep(CACHE_STATE["settings"]["unlock_duration"])
+            CACHE_STATE["relays"]["door_strike_relay"] = False
+            CACHE_STATE["security"]["door_lock_engaged"] = True
+        threading.Thread(target=auto_relock, daemon=True).start()
+    elif action_type == "security":
+        armed = payload.get("armed_away", False)
+        CACHE_STATE["security"]["armed_away"] = bool(armed)
+        svc = "turn_on" if armed else "turn_off"
+        ha_call(f"services/input_boolean/{svc}", "POST", {"entity_id": "input_boolean.security_armed_away"})
+
+# Initialize AI Agent Instance
+ai_agent = SmartHomeAIAgent(
+    state_provider_callback=lambda: CACHE_STATE,
+    action_executor_callback=execute_agent_action
+)
 
 mqtt_client_instance = None
 
@@ -190,11 +236,20 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        query = urllib.parse.parse_qs(parsed.query)
+
         if parsed.path == "/api/state":
             CACHE_STATE["system"]["server_time"] = datetime.now().strftime("%H:%M:%S %d/%m/%Y")
             self._send_json(CACHE_STATE)
         elif parsed.path == "/api/logs":
             self._handle_get_logs()
+        elif parsed.path == "/api/agent/briefing":
+            member = query.get("member", ["Chủ hộ"])[0]
+            briefing = ai_agent.generate_proactive_briefing(member)
+            self._send_json(briefing)
+        elif parsed.path == "/api/agent/events":
+            events = ai_agent.get_family_events()
+            self._send_json({"events": events})
         elif parsed.path in ("/", "/index.html"):
             super().do_GET()
         else:
@@ -210,7 +265,20 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
-        if parsed.path == "/api/control/relay":
+        if parsed.path == "/api/agent/chat":
+            msg = data.get("message", "")
+            member = data.get("member", "Chủ hộ")
+            resp = ai_agent.process_chat_message(msg, member)
+            self._send_json(resp)
+
+        elif parsed.path == "/api/agent/events":
+            title = data.get("title", "")
+            ev_time = data.get("time", "19:00")
+            member = data.get("member", "Cả nhà")
+            new_ev = ai_agent.add_family_event(title, ev_time, member)
+            self._send_json({"ok": True, "event": new_ev})
+
+        elif parsed.path == "/api/control/relay":
             target = data.get("relay")
             state = data.get("state") # True / False
             if target in CACHE_STATE["relays"]:

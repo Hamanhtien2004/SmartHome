@@ -5,15 +5,19 @@ Hệ thống Nhà thông minh cục bộ (**Local-first Smart Home**) chuẩn c�
 ---
 
 ## 🌟 Điểm nổi bật & Cơ chế Chống xung đột (Zero Conflict Architecture)
-1. **Hoạt động độc lập & Chống xung đột phần cứng (Hardware & Pin Integrity)**:
+1. **Trợ lý AI Gia đình theo Ngữ cảnh (Context-Aware AI Smart Home Agent)**:
+   - Tự động hợp nhất dữ liệu thực tế trong nhà (nhiệt độ, độ ẩm, người hiện diện qua radar, trạng thái khóa cửa) với **thông tin thời tiết thực tế (Open-Meteo)** và **lịch trình, sự kiện gia đình (Supabase `family_events`)**.
+   - **Chủ động chào đón & thông tin ngay khi mở hệ thống**: Phát thông điệp chào mừng cá nhân hóa qua giọng nói tiếng Việt (TTS) và văn bản, tóm tắt thời tiết hôm nay, sự kiện cần nhớ và đề xuất bật/tắt thiết bị thông minh.
+   - **Tương tác 2 chiều bằng Giọng nói (Microphone) & Văn bản**: Ra lệnh tự nhiên bằng tiếng Việt (*"bật đèn phòng khách"*, *"mở khóa cửa 5s"*, *"thời tiết hôm nay thế nào?"*, *"ai vừa mở cửa?"*, *"nhắc tôi họp gia đình tối nay"*).
+2. **Hoạt động độc lập & Chống xung đột phần cứng (Hardware & Pin Integrity)**:
    - Tất cả chân GPIO trên các mạch ESP32 đều được quy hoạch độc lập, lọc nhiễu phần mềm (**debounce 50ms - 100ms**), không trùng lặp chân.
    - Công tắc cơ âm tường được xử lý trực tiếp tại **Edge ESP32**, giúp thiết bị hoạt động bình thường ngay cả khi mất Wi-Fi hay máy chủ bảo trì.
-2. **Đồng bộ song song MQTT & Native API**:
+3. **Đồng bộ song song MQTT & Native API**:
    - ESPHome phát đồng thời qua Home Assistant Native API và Mosquitto MQTT, tránh xung đột dữ liệu giữa Home Assistant, Node-RED, Python Bot và Web Dashboard.
-3. **Cơ chế chống dao động rơ-le (Hysteresis & Anti-Flapping)**:
+4. **Cơ chế chống dao động rơ-le (Hysteresis & Anti-Flapping)**:
    - Cảm biến nhiệt độ bật quạt tích hợp vùng đệm trễ ($30^\circ\text{C}$ bật, $\le 27^\circ\text{C}$ tắt), chống tình trạng relay quạt đóng ngắt liên tục.
    - Khóa chốt điện từ tự động ngắt sau xung kích 5 giây, bảo vệ cuộn hút không bị quá nhiệt.
-4. **Bảng điều khiển & Giám sát Web độc lập (Web Management Dashboard)**:
+5. **Bảng điều khiển & Giám sát Web độc lập (Web Management Dashboard)**:
    - Giao diện Web hiện đại (Cổng `5000`), tích hợp **Bộ giả lập kiểm thử phần cứng (Hardware Simulator)** cho phép kiểm tra mọi tính năng ngay cả khi chưa cắm thiết bị thật!
    - Kéo thanh trượt điều chỉnh độ nhạy radar, thời gian trễ tắt đèn, ngưỡng nhận diện khuôn mặt trực tiếp từ trình duyệt.
 

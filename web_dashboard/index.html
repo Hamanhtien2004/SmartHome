@@ -84,6 +84,9 @@
 
     <!-- NAVIGATION TABS -->
     <div class="max-w-7xl mx-auto px-4 flex space-x-1 border-t border-slate-800/60 text-sm overflow-x-auto">
+      <button onclick="switchTab('tab-agent')" id="btn-tab-agent" class="tab-btn px-4 py-3 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-robot text-indigo-400"></i> Trợ Lý AI Gia Đình
+      </button>
       <button onclick="switchTab('tab-dashboard')" id="btn-tab-dashboard" class="tab-btn px-4 py-3 font-medium border-b-2 border-blue-500 text-blue-400 flex items-center gap-2">
         <i class="fa-solid fa-sliders"></i> Giám sát & Điều khiển
       </button>
@@ -100,7 +103,171 @@
   </header>
 
   <!-- MAIN CONTENT CONTAINER -->
-  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+
+    <!-- PROACTIVE AGENT GREETING BANNER -->
+    <div id="agent-proactive-banner" class="glass-card p-4 sm:p-5 border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-slate-900/40 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl shrink-0 mt-0.5">
+          <i class="fa-solid fa-sparkles animate-pulse"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs uppercase font-bold tracking-wider text-indigo-400">Trợ Lý Thông Minh Smart Home</span>
+            <span class="text-xs text-slate-500">•</span>
+            <span id="banner-weather-pill" class="text-xs text-slate-300 font-medium">🌤 Hà Nội: 28°C - Trời quang đãng</span>
+          </div>
+          <p id="banner-agent-text" class="text-sm sm:text-base font-medium text-white mt-1">
+            Đang tải dữ liệu tổng hợp từ các cảm biến trong nhà và thời tiết...
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 self-end md:self-center">
+        <button onclick="speakAgentMessage()" id="btn-agent-speak" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-volume-high text-indigo-400"></i> Đọc lời chào
+        </button>
+        <button onclick="switchTab('tab-agent')" class="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-comments"></i> Trò chuyện AI
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 0: TRỢ LÝ AI GIA ĐÌNH (AI ASSISTANT TAB) -->
+    <section id="tab-agent" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- COLUMN 1 & 2: INTERACTIVE AI CHAT INTERFACE -->
+        <div class="lg:col-span-2 glass-card p-6 flex flex-col h-[650px]">
+          <!-- Chat Header -->
+          <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-lg shadow-md shadow-indigo-500/20">
+                <i class="fa-solid fa-robot"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-base">Trợ Lý AI Nhà Thông Minh</h3>
+                <p class="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Sẵn sàng tương tác bằng Giọng nói & Văn bản (Tiếng Việt)
+                </p>
+              </div>
+            </div>
+
+            <!-- Speech Output Toggle -->
+            <button onclick="toggleVoiceOutput()" id="btn-toggle-voice" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700">
+              <i class="fa-solid fa-volume-high text-indigo-400" id="icon-voice-toggle"></i>
+              <span id="text-voice-toggle">Giọng nói: BẬT</span>
+            </button>
+          </div>
+
+          <!-- Chat Stream Messages -->
+          <div id="agent-chat-messages" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 text-sm">
+            <!-- Initial Agent Message -->
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center shrink-0 text-sm mt-0.5">
+                <i class="fa-solid fa-robot"></i>
+              </div>
+              <div class="bg-slate-800/90 text-slate-200 p-3.5 rounded-2xl rounded-tl-sm max-w-[85%] border border-slate-700/60 leading-relaxed">
+                Xin chào bạn! Tôi là Trợ lý AI Nhà thông minh. Tôi liên tục nắm bắt các dữ liệu trong nhà (nhiệt độ, độ ẩm, người hiện diện, khóa cửa) và thông tin bên ngoài (thời tiết, lịch trình). Bạn có thể bấm nói hoặc nhập câu hỏi bất cứ lúc nào!
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Suggestion Chips -->
+          <div class="pt-3 pb-2 flex gap-2 overflow-x-auto text-xs no-scrollbar">
+            <button onclick="sendQuickPrompt('Thời tiết hôm nay thế nào?')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              🌤 Thời tiết hôm nay?
+            </button>
+            <button onclick="sendQuickPrompt('Bật đèn chính phòng khách')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              💡 Bật đèn chính
+            </button>
+            <button onclick="sendQuickPrompt('Bật quạt trần')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              🌀 Bật quạt
+            </button>
+            <button onclick="sendQuickPrompt('Mở khóa cửa chính')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              🔓 Mở cửa 5s
+            </button>
+            <button onclick="sendQuickPrompt('Nhà hiện tại thế nào?')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              📊 Tình trạng nhà?
+            </button>
+            <button onclick="sendQuickPrompt('Lịch trình hôm nay của gia đình?')" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-700 shrink-0 transition">
+              📅 Sự kiện hôm nay?
+            </button>
+          </div>
+
+          <!-- Chat Input Bar (Text + Voice Speech Recognition) -->
+          <form onsubmit="handleUserChatSubmit(event)" class="pt-2 flex items-center gap-2">
+            <input type="text" id="agent-chat-input" placeholder="Hỏi thời tiết, điều khiển đèn, quạt, khóa cửa hoặc nhắc việc..." class="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-slate-500">
+            
+            <!-- Voice Input Microphone Button -->
+            <button type="button" onclick="startVoiceRecognition()" id="btn-voice-record" title="Bấm để nói bằng giọng nói (Microphone)" class="w-12 h-12 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-400 hover:text-white flex items-center justify-center transition shrink-0">
+              <i class="fa-solid fa-microphone text-lg" id="icon-mic"></i>
+            </button>
+
+            <!-- Send Button -->
+            <button type="submit" class="w-12 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition shrink-0 shadow-lg shadow-indigo-500/20">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
+        </div>
+
+        <!-- COLUMN 3: REAL-TIME CONTEXT & FAMILY SCHEDULES WIDGET -->
+        <div class="space-y-6">
+          
+          <!-- Weather Widget Card -->
+          <div class="glass-card p-5">
+            <h4 class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+              <i class="fa-solid fa-cloud-sun text-amber-400"></i> Ngữ Cảnh Thời Tiết
+            </h4>
+            <div class="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">Trạng thái:</span>
+                <span id="agent-weather-desc" class="font-bold text-white">Trời quang đãng</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">Nhiệt độ ngoài trời:</span>
+                <span id="agent-weather-temp" class="font-bold text-amber-400">28.0 °C</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">Xác suất có mưa:</span>
+                <span id="agent-weather-rain" class="font-bold text-blue-400">15 %</span>
+              </div>
+              <div class="pt-2 border-t border-slate-800/80 text-slate-300 italic" id="agent-weather-advice">
+                Khí hậu hôm nay rất dễ chịu, thích hợp cho mọi sinh hoạt gia đình.
+              </div>
+            </div>
+          </div>
+
+          <!-- Family Schedule & Events Widget -->
+          <div class="glass-card p-5">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-days text-indigo-400"></i> Sự Kiện & Lịch Trình Hôm Nay
+              </h4>
+              <span id="badge-events-count" class="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-semibold border border-indigo-500/20">2 sự kiện</span>
+            </div>
+
+            <!-- Event List -->
+            <div id="agent-events-list" class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+              <!-- Rendered via JS -->
+            </div>
+
+            <!-- Quick Add Event Form -->
+            <form onsubmit="handleQuickAddEvent(event)" class="mt-4 pt-3 border-t border-slate-800 space-y-2">
+              <input type="text" id="input-new-event-title" placeholder="Thêm việc cần nhắc (vd: Họp phụ huynh)..." class="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+              <div class="flex gap-2">
+                <input type="text" id="input-new-event-time" value="19:30" class="w-24 bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white text-center focus:outline-none focus:border-indigo-500">
+                <button type="submit" class="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition">
+                  <i class="fa-solid fa-plus"></i> Thêm nhắc nhở
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
 
     <!-- TAB 1: GIÁM SÁT & ĐIỀU KHIỂN (LIVE DASHBOARD) -->
     <section id="tab-dashboard" class="tab-content space-y-6">
@@ -735,6 +902,245 @@
     // Auto-polling state every 2 seconds
     fetchState();
     setInterval(fetchState, 2000);
+
+    // =========================================================================
+    // AI AGENT ASSISTANT JAVASCRIPT ENGINE (VOICE, WEATHER, EVENTS & CHAT)
+    // =========================================================================
+    let voiceOutputEnabled = true;
+    let latestBriefingText = "";
+    let speechRecognition = null;
+
+    // Load Proactive Briefing on page startup
+    async function loadAgentBriefing() {
+      try {
+        const res = await fetch('/api/agent/briefing?member=Anh%20Tiến');
+        const data = await res.json();
+        latestBriefingText = data.message || "";
+        
+        // Update top banner
+        document.getElementById('banner-agent-text').innerText = latestBriefingText;
+        if (data.weather) {
+          document.getElementById('banner-weather-pill').innerText = `🌤 Ngoài trời: ${data.weather.temperature}°C - ${data.weather.description}`;
+          document.getElementById('agent-weather-desc').innerText = data.weather.description;
+          document.getElementById('agent-weather-temp').innerText = data.weather.temperature + ' °C';
+          document.getElementById('agent-weather-rain').innerText = data.weather.rain_probability + ' %';
+          document.getElementById('agent-weather-advice').innerText = data.weather.advice;
+        }
+
+        // Render Events
+        renderEventsList(data.events || []);
+      } catch (err) {
+        console.error("Failed to load agent briefing:", err);
+      }
+    }
+
+    function renderEventsList(events) {
+      const container = document.getElementById('agent-events-list');
+      const badge = document.getElementById('badge-events-count');
+      if (badge) badge.innerText = `${events.length} sự kiện`;
+      if (!container) return;
+
+      container.innerHTML = '';
+      if (events.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-500 italic p-2 text-center">Không có sự kiện nào hôm nay.</p>';
+        return;
+      }
+
+      events.forEach(ev => {
+        const div = document.createElement('div');
+        div.className = 'bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs flex justify-between items-center';
+        div.innerHTML = `
+          <div>
+            <h5 class="font-semibold text-white">${ev.title}</h5>
+            <p class="text-slate-400 text-[11px]"><i class="fa-regular fa-clock text-indigo-400"></i> ${ev.time || 'Hôm nay'} &bull; ${ev.member || 'Cả nhà'}</p>
+          </div>
+          <span class="p-1 rounded-full text-emerald-400 text-sm"><i class="fa-regular fa-circle-check"></i></span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function handleUserChatSubmit(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('agent-chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      await sendAgentChat(msg);
+    }
+
+    async function sendQuickPrompt(promptText) {
+      await sendAgentChat(promptText);
+    }
+
+    async function sendAgentChat(userMsg) {
+      const msgContainer = document.getElementById('agent-chat-messages');
+
+      // Append user bubble
+      const userDiv = document.createElement('div');
+      userDiv.className = 'flex items-start justify-end gap-3';
+      userDiv.innerHTML = `
+        <div class="bg-indigo-600 text-white p-3.5 rounded-2xl rounded-tr-sm max-w-[85%] shadow-md leading-relaxed text-sm">
+          ${userMsg}
+        </div>
+        <div class="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shrink-0 text-sm mt-0.5">
+          <i class="fa-solid fa-user"></i>
+        </div>
+      `;
+      msgContainer.appendChild(userDiv);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      // Send to backend
+      try {
+        const res = await fetch('/api/agent/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({message: userMsg, member: 'Anh Tiến'})
+        });
+        const data = await res.json();
+        const reply = data.reply || "Tôi đã nhận được thông tin.";
+
+        // Append Agent bubble
+        const agentDiv = document.createElement('div');
+        agentDiv.className = 'flex items-start gap-3';
+        agentDiv.innerHTML = `
+          <div class="w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center shrink-0 text-sm mt-0.5">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-800/90 text-slate-200 p-3.5 rounded-2xl rounded-tl-sm max-w-[85%] border border-slate-700/60 leading-relaxed text-sm">
+            ${reply.replace(/\n/g, '<br>')}
+          </div>
+        `;
+        msgContainer.appendChild(agentDiv);
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+
+        // Speak out loud if TTS enabled
+        if (voiceOutputEnabled) {
+          // Clean HTML tags for speech synthesis
+          const plainText = reply.replace(/<[^>]*>/g, '');
+          speakAgentMessage(plainText);
+        }
+
+        // If action executed, refresh hardware state
+        if (data.action_executed) {
+          fetchState();
+        }
+      } catch (err) {
+        console.error("Chat error:", err);
+      }
+    }
+
+    // Text to Speech (Phát âm giọng nói tiếng Việt)
+    function speakAgentMessage(textToSpeak) {
+      const text = textToSpeak || latestBriefingText;
+      if (!('speechSynthesis' in window) || !text) return;
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      // Select Vietnamese voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const viVoice = voices.find(v => v.lang.includes('vi') || v.lang.includes('VN'));
+      if (viVoice) {
+        utterance.voice = viVoice;
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleVoiceOutput() {
+      voiceOutputEnabled = !voiceOutputEnabled;
+      const btn = document.getElementById('btn-toggle-voice');
+      const text = document.getElementById('text-voice-toggle');
+      const icon = document.getElementById('icon-voice-toggle');
+
+      if (voiceOutputEnabled) {
+        text.innerText = 'Giọng nói: BẬT';
+        icon.className = 'fa-solid fa-volume-high text-indigo-400';
+      } else {
+        window.speechSynthesis.cancel();
+        text.innerText = 'Giọng nói: TẮT';
+        icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+      }
+    }
+
+    // Voice Speech Recognition (Nhận diện giọng nói tiếng Việt bằng Microphone)
+    function startVoiceRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Trình duyệt của bạn chưa hỗ trợ nhận diện giọng nói Web Speech API. Hãy thử Google Chrome hoặc Microsoft Edge.");
+        return;
+      }
+
+      const micBtn = document.getElementById('btn-voice-record');
+      const micIcon = document.getElementById('icon-mic');
+
+      if (speechRecognition) {
+        speechRecognition.stop();
+        speechRecognition = null;
+        micBtn.classList.remove('bg-rose-600', 'text-white', 'animate-pulse');
+        micBtn.classList.add('bg-slate-800', 'text-indigo-400');
+        return;
+      }
+
+      speechRecognition = new SpeechRecognition();
+      speechRecognition.lang = 'vi-VN';
+      speechRecognition.interimResults = false;
+      speechRecognition.maxAlternatives = 1;
+
+      micBtn.classList.remove('bg-slate-800', 'text-indigo-400');
+      micBtn.classList.add('bg-rose-600', 'text-white', 'animate-pulse');
+
+      speechRecognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('agent-chat-input').value = transcript;
+        sendAgentChat(transcript);
+      };
+
+      speechRecognition.onerror = function(event) {
+        console.error("Speech recognition error:", event.error);
+        stopMicUI();
+      };
+
+      speechRecognition.onend = function() {
+        stopMicUI();
+      };
+
+      function stopMicUI() {
+        speechRecognition = null;
+        micBtn.classList.remove('bg-rose-600', 'text-white', 'animate-pulse');
+        micBtn.classList.add('bg-slate-800', 'text-indigo-400');
+      }
+
+      speechRecognition.start();
+    }
+
+    async function handleQuickAddEvent(event) {
+      if (event) event.preventDefault();
+      const titleInput = document.getElementById('input-new-event-title');
+      const timeInput = document.getElementById('input-new-event-time');
+      const title = titleInput.value.trim();
+      const evTime = timeInput.value.trim() || '19:30';
+      if (!title) return;
+
+      try {
+        const res = await fetch('/api/agent/events', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({title: title, time: evTime, member: 'Gia đình'})
+        });
+        titleInput.value = '';
+        loadAgentBriefing();
+        sendAgentChat(`Nhắc tôi: ${title} lúc ${evTime}`);
+      } catch (e) {
+        console.error("Add event error:", e);
+      }
+    }
+
+    // Initialize agent briefing when page opens
+    loadAgentBriefing();
   </script>
 </body>
 </html>

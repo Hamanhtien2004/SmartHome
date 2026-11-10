@@ -77,6 +77,32 @@ CREATE TABLE IF NOT EXISTS public.security_alerts (
 );
 
 -- ==============================================================================
+-- TABLE: family_events (Lịch trình & Sự kiện Gia đình cho AI Agent)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.family_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    time VARCHAR(10) DEFAULT '19:00',
+    date DATE DEFAULT CURRENT_DATE NOT NULL,
+    member VARCHAR(100) DEFAULT 'Cả nhà',
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- ==============================================================================
+-- TABLE: agent_conversations (Nhật ký Hội thoại với Trợ lý AI)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.agent_conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    member_name VARCHAR(100) DEFAULT 'Chủ hộ',
+    user_query TEXT NOT NULL,
+    agent_reply TEXT NOT NULL,
+    action_executed VARCHAR(100)
+);
+
+-- ==============================================================================
 -- TABLE: sensor_telemetry (Lưu trữ chỉ số môi trường & Radar mmWave theo thời gian)
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.sensor_telemetry (

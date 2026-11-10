@@ -21,6 +21,18 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
+# Ensure project root is in sys.path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+# Import AI Agent Engine
+try:
+    from ai_agent.agent_core import SmartHomeAIAgent
+    AI_AGENT_AVAILABLE = True
+except ImportError:
+    AI_AGENT_AVAILABLE = False
+
 # Import Supabase Client
 try:
     from supabase_client import (
@@ -67,6 +79,45 @@ STATE = {
     "latest_person": "None",
     "latest_confidence": 0.0
 }
+
+def telegram_agent_action_executor(action_type: str, payload: dict):
+    if action_type == "relay":
+        target = payload.get("relay")
+        state = payload.get("state")
+        ha_entity_map = {
+            "main_light": "switch.living_room_main_light",
+            "ambient_light": "switch.living_room_ambient_light",
+            "ceiling_fan": "switch.living_room_ceiling_fan",
+            "aux_socket": "switch.living_room_aux_socket"
+        }
+        if target in ha_entity_map:
+            svc = "turn_on" if state else "turn_off"
+            ha_api_post(f"services/switch/{svc}", {"entity_id": ha_entity_map[target]})
+    elif action_type == "unlock":
+        trigger_door_unlock("Telegram AI Agent")
+    elif action_type == "security":
+        armed = payload.get("armed_away", False)
+        svc = "turn_on" if armed else "turn_off"
+        ha_api_post(f"services/input_boolean/{svc}", {"entity_id": "input_boolean.security_armed_away"})
+
+if AI_AGENT_AVAILABLE:
+    telegram_agent = SmartHomeAIAgent(
+        state_provider_callback=lambda: {
+            "sensors": {
+                "temperature": float(STATE.get("current_temp", 28.5)),
+                "humidity": float(STATE.get("current_humidity", 65.0)),
+                "radar_presence": False
+            },
+            "security": {
+                "armed_away": STATE.get("armed", False),
+                "latest_face_match": STATE.get("latest_person", "None"),
+                "latest_face_confidence": STATE.get("latest_confidence", 0.0)
+            }
+        },
+        action_executor_callback=telegram_agent_action_executor
+    )
+else:
+    telegram_agent = None
 
 def telegram_api_request(method: str, params: dict = None) -> dict:
     """Send an HTTP POST request to Telegram Bot API."""
@@ -389,7 +440,16 @@ def process_telegram_command(text: str) -> str:
         STATE["armed"] = False
         ha_api_post("services/input_boolean/turn_off", {"entity_id": "input_boolean.security_armed_away"})
         return "🔓 <b>Hệ thống đã TẮT bảo vệ.</b>"
+    elif cmd in ("/agent", "/briefing"):
+        if telegram_agent:
+            b = telegram_agent.generate_proactive_briefing("Chủ hộ")
+            return f"🤖 <b>[BẢN TIN TRỢ LÝ AI SMART HOME]</b>\n\n{b['message']}"
+        return "Trợ lý AI chưa khả dụng."
     else:
+        # Route natural language conversation to AI Agent
+        if telegram_agent:
+            resp = telegram_agent.process_chat_message(text, "Chủ hộ")
+            return resp.get("reply", "Tôi đã ghi nhận thông tin.")
         return "❓ Lệnh không hợp lệ. Gõ /help để xem trợ giúp."
 
 def telegram_polling_loop():

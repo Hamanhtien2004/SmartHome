@@ -18,11 +18,13 @@ views:
     cards:
       # Header Card
       - type: markdown
-        title: "🏠 TRUNG TÂM ĐIỀU KHIỂN NHÀ THÔNG MINH"
+        title: "🤖 TRỢ LÝ AI SMART HOME"
         content: >
-          Chế độ nhà hiện tại: **{{ states('input_select.house_mode') }}**
+          **Lời chào:** Chào mừng gia đình bạn về nhà! Chế độ nhà: **{{ states('input_select.house_mode') }}**.
           
-          Thời gian máy chủ: **{{ now().strftime('%H:%M - %A, %d/%m/%Y') }}**
+          🌤 **Thời tiết ngoài trời:** Dự báo quang đãng, mát mẻ &bull; 🌡 **Trong nhà:** {{ states('sensor.bedroom_temperature') }}°C ({{ states('sensor.bedroom_humidity') }}%)
+          
+          💡 **Gợi ý tự động hóa:** Bạn có thể ra lệnh giọng nói hoặc trò chuyện với Trợ lý AI qua Web Dashboard (`:5000`) và Telegram Bot.
 
       # Card 1: Khóa cửa & Trạng thái Nhận diện khuôn mặt
       - type: entities
